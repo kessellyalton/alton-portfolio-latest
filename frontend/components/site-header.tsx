@@ -42,8 +42,31 @@ export default function SiteHeader() {
           ))}
         </nav>
 
-        {/* CTA + Mobile Toggle */}
+        {/* CTA + Dashboard + Mobile Toggle */}
         <div className="flex items-center gap-2">
+          {/* Dashboard lock icon — subtle, links to private dashboard */}
+          <Link
+            href="/dashboard"
+            aria-label="Dashboard"
+            title="Dashboard (private)"
+            className="hidden h-9 w-9 items-center justify-center rounded-lg border border-navy-700 text-ink-400 transition-colors hover:border-gold-400/60 hover:bg-navy-800 hover:text-gold-300 sm:flex"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </Link>
+
           <Link
             href="/contact"
             className="hidden rounded-lg bg-gradient-to-r from-gold-400 to-gold-500 px-4 py-2 text-sm font-semibold text-navy-950 shadow-md transition-all hover:from-gold-300 hover:to-gold-400 hover:shadow-gold-400/30 sm:inline-block"
@@ -107,6 +130,30 @@ export default function SiteHeader() {
                 {item.label}
               </Link>
             ))}
+
+            {/* Dashboard link for mobile */}
+            <Link
+              href="/dashboard"
+              onClick={() => setMobileOpen(false)}
+              className="flex items-center gap-2 rounded-md px-3 py-2.5 text-base font-medium text-ink-200 transition-colors hover:bg-navy-800/60 hover:text-gold-300"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              Dashboard
+            </Link>
+
             <Link
               href="/contact"
               onClick={() => setMobileOpen(false)}
@@ -120,4 +167,3 @@ export default function SiteHeader() {
     </header>
   );
 }
-

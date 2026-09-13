@@ -910,3 +910,132 @@ The user message is captured in `lastUserMessageRef` because `onFinish` only rec
 - ✅ Logs viewable in Django admin
 - ✅ Chat count shown on Wagtail dashboard
 - ✅ Free tier (Groq) — no credit card required
+
+## Phase 5 — Private Dashboard
+
+### Overview
+
+A login-protected admin interface at `/dashboard` where Alton can:
+- See content counts and recent activity
+- Browse, filter, and flag AI chat conversations
+- Quick-link to the Wagtail and Django admins
+
+### Architecture
+
+    ┌──────────────┐    password     ┌──────────────────┐
+    │  Login page  │ ───────────────►│  /api/auth/login │
+    │  /dashboard/ │                 │  compares to     │
+    │  login       │ ◄─── cookie ─── │  DASHBOARD_PASS  │
+    └──────────────┘                 └──────────────────┘
+
+    ┌──────────────┐    cookie       ┌──────────────────┐
+    │  Browser     │ ───────────────►│  proxy.ts        │
+    │  /dashboard  │                 │  validates token │
+    │              │ ◄─── allow ──── │  on every request│
+    └──────────────┘                 └──────────────────┘
+
+### Step 5.1 — Backend API Endpoints
+
+Extended `ai_chat/views.py` and `ai_chat/urls.py` with four endpoints:
+
+| Method | URL | Purpose |
+|---|---|---|
+| POST | `/api/chat-log/` | Widget logs a chat |
+| GET | `/api/chat-logs/` | List chats (dashboard) |
+| GET | `/api/chat-logs/<id>/` | Single chat |
+| POST | `/api/chat-logs/<id>/flag/` | Toggle flagged |
+
+**Query params on list endpoint:**
+- `limit` (default 50, max 200)
+- `offset` (default 0)
+- `flagged=true` (filter flagged only)
+
+**Views use `@csrf_exempt`** because they're called by the Next.js frontend, not a Django-rendered form. For a solo portfolio this is acceptable; a production multi-user app would need proper CSRF tokens or API keys.
+
+### Step 5.2 — Password Auth
+
+**Two secrets in `.env.local`:**
+
+    DASHBOARD_PASSWORD=choose-a-strong-password
+    DASHBOARD_TOKEN=any-long-random-string-you-invent
+
+**Why two values:**
+- `DASHBOARD_PASSWORD` — what you type on the login page. **Never stored in the cookie.**
+- `DASHBOARD_TOKEN` — a random server-side string that goes into the cookie. A leaked cookie exposes the token, not the password.
+
+**Files:**
+- `lib/auth.ts` — helpers (`checkPassword`, `getToken`, `isValidToken`)
+- `app/api/auth/login/route.ts` — POST, validates password, sets HTTP-only cookie
+- `app/api/auth/logout/route.ts` — POST, clears cookie
+- `proxy.ts` — Next.js 16's renamed middleware. Guards `/dashboard/*` routes.
+
+**Critical learnings:**
+
+| Issue | Solution |
+|---|---|
+| Next.js 16 renamed `middleware.ts` → `proxy.ts` | Use `proxy.ts`, not `middleware.ts` |
+| Middleware runs on Edge runtime (no `crypto`) | Avoid crypto entirely — use simple string comparison |
+| Cookie must be `httpOnly` | Prevents JS access — XSS-safe |
+| `sameSite: "lax"` | Prevents CSRF from external sites |
+| `secure: true` in production only | Local dev uses HTTP, not HTTPS |
+
+### Step 5.3 — Dashboard Layout
+
+`app/dashboard/layout.tsx`:
+
+- **Sidebar** (desktop only): nav links + external Wagtail/Django links + logout button
+- **Main content**: `{children}`
+
+`components/logout-button.tsx` — client component that POSTs to `/api/auth/logout` and redirects to login.
+
+### Step 5.4 — Overview Page
+
+`app/dashboard/page.tsx` — client component with:
+
+- **5 stat cards**: Projects, Blog Posts, Lectures, AI Chats, Flagged Chats
+- **Recent AI Chats** — last 5 conversations with page badges, timestamps, flag indicators
+- **Loading** and **error** states
+
+Fetches in parallel with `Promise.all()` for speed.
+
+### Step 5.5 — Chats List Page
+
+`app/dashboard/chats/page.tsx`:
+
+**Two-column layout:**
+- **Left**: Scrollable list of chats (up to 100), each with page badge, timestamp, flag toggle, and 2-line message preview
+- **Right**: Selected chat detail — full user message + AI response
+
+**Features:**
+- **URL-driven state**: `?filter=flagged` and `?id=7` work as deep links
+- **Inline flag toggle**: Click ⚐ to flag, 🚩 to unflag
+- **"Show flagged only"** checkbox filter
+
+### Step 5.6 — Header Dashboard Icon
+
+`components/site-header.tsx` — added a **lock icon** between nav and "Hire Me":
+
+- Desktop: subtle lock icon with tooltip "Dashboard (private)"
+- Mobile: full "Dashboard" link in the hamburger menu
+
+**Why a lock icon** instead of a nav link: the dashboard is private. A subtle icon signals "this exists for the owner" without cluttering the public nav.
+
+### Common Pitfalls (Phase 5)
+
+1. **`middleware.ts` deprecated in Next.js 16** — rename to `proxy.ts`
+2. **Edge runtime has no Node `crypto`** — don't hash passwords in middleware
+3. **Env vars not reloading** — restart `npm run dev` after editing `.env.local`
+4. **Forgetting the catch-all route order** — `ai_chat.urls` must come before Wagtail's `re_path(r"^", ...)`
+5. **404 from missing `page.tsx`** — `layout.tsx` alone doesn't create a route; you need `page.tsx`
+
+### Phase 5 Exit Criteria
+
+- ✅ `/dashboard` requires login
+- ✅ Password auth works (wrong password rejected)
+- ✅ Overview shows real stats
+- ✅ Chats list with detail view
+- ✅ Flag toggle works from both list and detail
+- ✅ Filter by flagged
+- ✅ Deep links (`?id=X`, `?filter=flagged`)
+- ✅ Header lock icon links to dashboard
+- ✅ Logout works
