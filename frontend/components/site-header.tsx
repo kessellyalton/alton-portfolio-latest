@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { label: "Projects", href: "/projects" },
   { label: "Lectures", href: "/lectures" },
   { label: "Blog", href: "/blog" },
+  { label: "Contact", href: "/contact" },
 ];
 
 export default function SiteHeader() {
@@ -119,3 +120,4 @@ export default function SiteHeader() {
     </header>
   );
 }
+
