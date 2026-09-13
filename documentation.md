@@ -254,3 +254,103 @@ The first commit will fail if Git doesn't know who you are. Set this **once per 
 **Expected:**
 - `git log --oneline` shows one line with the commit hash and message
 - `git status` says `nothing to commit, working tree clean`
+
+### Step 1.7 — Create GitHub Repo and Push
+
+#### Part A — Create the Repo on GitHub
+
+1. Go to https://github.com/new
+2. Fill in:
+   - **Repository name:** e.g., `alton-portfolio`
+   - **Description:** short one-liner
+   - **Visibility:** Public or Private (your choice)
+3. **Leave all checkboxes UNCHECKED:**
+   - ☐ Add a README file
+   - ☐ Add .gitignore
+   - ☐ Choose a license
+   - ☐ Start with a template
+
+**Why leave them unchecked:** You already have these files locally. If GitHub creates its own, your local and remote histories diverge, and `git push` will fail with a "non-fast-forward" error. You'd then need to `git pull --rebase` and resolve conflicts for no reason.
+
+**Rule of thumb:** If you have commits locally, let your local repo be the source of truth. Create the remote empty.
+
+#### Part B — Connect Local to Remote
+
+    git remote add origin https://github.com/USERNAME/REPO.git
+    git remote -v
+
+The `-v` flag shows both fetch and push URLs, confirming the remote is set.
+
+**What "origin" means:** `origin` is just a nickname for the remote URL. You can have multiple remotes (e.g., `origin`, `upstream`), but for a solo project, `origin` is enough.
+
+#### Part C — Authenticate with GitHub CLI (Recommended)
+
+Install `gh`:
+
+    sudo apt install gh -y     # or: sudo snap install gh
+
+Authenticate:
+
+    gh auth login
+
+Answer the prompts:
+| Prompt | Answer |
+|---|---|
+| What account do you want to log into? | GitHub.com |
+| Preferred protocol for Git operations? | HTTPS |
+| Authenticate Git with your GitHub credentials? | Yes |
+| How would you like to authenticate? | Login with a web browser |
+
+If the browser login returns HTTP 500 (a known intermittent issue), use a Personal Access Token (PAT) instead:
+
+    gh auth login --with-token
+
+**How to create a PAT:**
+1. Go to https://github.com/settings/tokens
+2. Click **Personal access tokens (classic)** → **Generate new token (classic)**
+3. Give it a name (e.g., `gh-cli-laptop`)
+4. Set expiration (90 days is standard)
+5. Select scopes: **`repo`**, **`workflow`**, **`read:org`**
+6. Generate token and copy it immediately (you won't see it again)
+
+Then run `gh auth login --with-token` and paste the token, followed by `Ctrl+D`.
+
+**Verify:**
+
+    gh auth status
+
+#### Part D — Configure Git to Use `gh` for Auth
+
+Even after `gh auth login`, Git may still prompt for a username/password. Fix that with:
+
+    gh auth setup-git
+
+Verify:
+
+    git config --global --get-regexp credential
+
+Expected:
+    credential.https://github.com.helper !/usr/bin/gh auth git-credential
+    credential.https://gist.github.com.helper !/usr/bin/gh auth git-credential
+
+#### Part E — Push
+
+    git push -u origin main
+
+**`-u` flag:** Sets `origin main` as the upstream branch, so future pushes just need `git push`.
+
+#### Part F — Verify
+
+    git branch -vv
+
+Expected: `main` shows `[origin/main]` as its tracking branch.
+
+Refresh your GitHub page — your commits and files should be visible.
+
+### Phase 1 Exit Criteria
+- Git repo initialized with `main` branch
+- `.gitignore`, `README.md`, and `documentation.md` committed
+- Remote `origin` points to GitHub
+- `gh` CLI installed and authenticated
+- Local `main` tracks `origin/main`
+- All commits pushed to GitHub
