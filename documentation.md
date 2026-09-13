@@ -210,3 +210,47 @@ Then:
 | Date | Change |
 |---|---|
 | 2026-09-13 | Initial creation — Phase 0 and Phase 1 documented |
+
+### Step 1.6 — First Commit
+
+    git add .
+    git status
+    git commit -m "chore: initial project setup with gitignore, README, and docs"
+
+**Command breakdown:**
+- `git add .` — stages all untracked files (respecting `.gitignore`)
+- `git status` — verifies exactly what is staged before committing
+- `git commit -m "..."` — creates a permanent snapshot with a descriptive message
+
+**Commit message convention (Conventional Commits):**
+| Prefix | Use |
+|---|---|
+| `chore:` | Setup, tooling, maintenance |
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `docs:` | Documentation only |
+| `refactor:` | Code cleanup without behavior change |
+| `test:` | Adding or fixing tests |
+| `style:` | Formatting, no logic change |
+
+### One-Time Setup: Git Identity
+
+The first commit will fail if Git doesn't know who you are. Set this **once per machine**:
+
+    git config --global user.email "you@example.com"
+    git config --global user.name "Your Name"
+
+**Why `--global`:** Applies the identity to all repositories on this machine. Without it, you'd set identity per-repo, which is tedious.
+
+**Verify identity was set:**
+
+    git config --global --list | grep user
+
+### Verify the Commit
+
+    git log --oneline
+    git status
+
+**Expected:**
+- `git log --oneline` shows one line with the commit hash and message
+- `git status` says `nothing to commit, working tree clean`
