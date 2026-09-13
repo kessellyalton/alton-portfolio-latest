@@ -5,7 +5,7 @@ Includes:
 - HomePage: hero, stats, rotating roles, trusted-by logos
 - ProjectPage: portfolio projects (AI, dashboards, software, education)
 - BlogPage: articles and insights
-- LecturePage: online courses and tutorials
+- LecturePage: online courses and tutorials (with downloadable resources)
 - Service: snippet for "What I Do" cards
 """
 from django.db import models
@@ -15,6 +15,7 @@ from wagtail.admin.panels import FieldPanel, MultiFieldPanel
 from wagtail.api import APIField
 from wagtail import blocks
 from wagtail.images.blocks import ImageChooserBlock
+from wagtail.documents.blocks import DocumentChooserBlock
 from wagtail.snippets.models import register_snippet
 from modelcluster.models import ClusterableModel
 
@@ -52,6 +53,28 @@ class LessonBlock(blocks.StructBlock):
     class Meta:
         icon = "media"
         label = "Lesson"
+
+
+class ResourceDocumentBlock(blocks.StructBlock):
+    """A downloadable file (PDF, Word, Excel, PPT, Keynote, etc.)."""
+    title = blocks.CharBlock(max_length=200)
+    description = blocks.CharBlock(max_length=300, required=False)
+    document = DocumentChooserBlock(required=True)
+
+    class Meta:
+        icon = "doc-full"
+        label = "Document"
+
+
+class ResourceLinkBlock(blocks.StructBlock):
+    """An external link (Google Docs/Sheets/Slides, external URL, etc.)."""
+    title = blocks.CharBlock(max_length=200)
+    description = blocks.CharBlock(max_length=300, required=False)
+    url = blocks.URLBlock(required=True)
+
+    class Meta:
+        icon = "link"
+        label = "External Link"
 
 
 # ─────────────────────────────────────────────
@@ -308,6 +331,19 @@ class LecturePage(Page):
         use_json_field=True,
     )
 
+    resources = StreamField(
+        [
+            ("document", ResourceDocumentBlock()),
+            ("link", ResourceLinkBlock()),
+        ],
+        blank=True,
+        use_json_field=True,
+        help_text=(
+            "Upload PDFs, Word docs, spreadsheets, presentations, or link "
+            "to external resources (Google Docs, Sheets, Slides, etc.)."
+        ),
+    )
+
     body = StreamField(
         [
             ("heading", blocks.CharBlock(form_classname="title")),
@@ -328,6 +364,7 @@ class LecturePage(Page):
         FieldPanel("video_url"),
         FieldPanel("syllabus_url"),
         FieldPanel("lessons"),
+        FieldPanel("resources"),
         FieldPanel("body"),
     ]
 
@@ -341,6 +378,7 @@ class LecturePage(Page):
         APIField("video_url"),
         APIField("syllabus_url"),
         APIField("lessons"),
+        APIField("resources"),
         APIField("body"),
     ]
 

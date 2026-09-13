@@ -1163,3 +1163,125 @@ The number grows as you add content.
 - ✅ System prompt instructs the AI to use the KB
 - ✅ No fabricated project names
 - ✅ Graceful fallback when KB is empty
+
+## Phase 7 — Detail Pages + Document Library
+
+### Overview
+
+Added detail pages for every content type, plus a document/file download system for lectures.
+
+### Step 7.1 — Project Detail Page
+
+Route: `app/projects/[slug]/page.tsx`
+
+- **Server Component** — fetches via `getProjectBySlug(slug)`
+- **404** if slug not found (`notFound()`)
+- **Dynamic metadata** — title and description from the project
+- **Layout**: breadcrumb, category badge, featured badge, title, intro, live demo / source code / case study buttons, cover image, tech stack pills, StreamField body, CTA footer
+
+### Step 7.2 — Blog Post Detail Page
+
+Route: `app/blog/[slug]/page.tsx`
+
+- Same pattern as projects
+- **Narrower layout** (max-w-3xl) for reading comfort
+- Metadata row: date, reading time, author
+- Cover image + StreamField body
+
+### Step 7.3 — Lecture Detail Page
+
+Route: `app/lectures/[slug]/page.tsx`
+
+- Level badge (color-coded: emerald/electric/gold)
+- Featured badge if applicable
+- Duration + lesson count metadata
+- Watch Video / Download Syllabus buttons
+- StreamField body
+- **Resource list** (see 7.4)
+
+### Step 7.4 — Document & Resource Library
+
+**Purpose:** Allow uploading PDFs, Word docs, spreadsheets, presentations, and linking external resources (Google Docs/Sheets/Slides) that visitors can view or download.
+
+**Backend changes** (`home/models.py`):
+
+| Addition | Type |
+|---|---|
+| `ResourceDocumentBlock` | StructBlock: title, description, DocumentChooserBlock |
+| `ResourceLinkBlock` | StructBlock: title, description, URL |
+| `LecturePage.resources` | StreamField with both block types |
+| `DocumentChooserBlock` import | From `wagtail.documents.blocks` |
+
+**Migration:** `0004_lecturepage_resources.py`
+
+**Frontend changes:**
+
+- `components/resource-list.tsx` — renders resource rows with file-type detection
+- `lib/api.ts` — added `WagtailDocument` and `ResourceBlock` types
+- `app/lectures/[slug]/page.tsx` — renders `<ResourceList>` when resources exist
+
+**File type detection** — from the file extension:
+
+| Extension | Badge | Color |
+|---|---|---|
+| `pdf` | PDF | Red |
+| `doc`, `docx`, `pages`, `odt` | DOC | Electric blue |
+| `xls`, `xlsx`, `csv`, `numbers`, `ods` | XLS | Emerald |
+| `ppt`, `pptx`, `key`, `odp` | PPT | Gold |
+| Anything else | FILE | Muted |
+
+### Step 7.5 — Document Resolution & URL Rewriting
+
+**Two tricky problems surfaced, both now solved:**
+
+#### Problem 1: `DocumentChooserBlock` Returns Just an ID
+
+Wagtail's API serializes `DocumentChooserBlock` as a numeric ID, not a full object. So `resource.value.document` was `7`, not `{ id: 7, meta: {...}, title: "..." }`.
+
+**Solution:** `resolveLectureResources()` in `lib/api.ts` fetches each document via `/api/v2/documents/<id>/` and swaps it in. Runs in parallel with `Promise.all`.
+
+#### Problem 2: Wagtail Returns URLs Without the Port
+
+The API returned URLs like `http://localhost/documents/1/file.pdf` (no `:8000`). Browsers tried port 80 → connection refused.
+
+**Root cause:** Wagtail's Site object has `hostname = "localhost"` (no port). Generated URLs use it verbatim.
+
+**Solution:** A `resolveMediaUrl()` helper in `lib/api.ts` that:
+
+1. Parses the URL if it starts with `http`
+2. Replaces the origin with `API_BASE`
+3. Preserves pathname + query string
+
+Applied to both `imageUrl()` (in `lib/api.ts`) and `docUrl()` (in `resource-list.tsx`).
+
+**Alternative (backend) fix:** Update the Site hostname to `localhost:8000` in Wagtail admin → Settings → Sites. We chose the frontend fix because it's deployment-agnostic.
+
+### Common Pitfalls (Phase 7)
+
+1. **`getFileKind` crashes on null document** — use `document?.meta?.download_url` with a default fallback.
+
+2. **Download URL missing port** — always rewrite Wagtail URLs to use `API_BASE`, never trust Wagtail's absolute URLs.
+
+3. **`document` is a number, not an object** — always resolve via `/api/v2/documents/<id>/`.
+
+4. **VS Code silent save failure** — use heredocs for multi-line files.
+
+5. **`notFound()` requires the `next/navigation` import** — not a thrown exception class.
+
+### Testing the Full Flow
+
+1. Create a Project, Blog Post, or Lecture in Wagtail admin
+2. On the list page, click "Details →" / "Read →" / "Start learning →"
+3. Verify the detail page loads
+4. **For lectures**: upload a document via **Documents** in Wagtail admin, add it as a **Resource** on the lecture, then verify View + Download buttons work
+5. Test external links (Google Docs, etc.) via the **External Link** resource type
+
+### Phase 7 Exit Criteria
+
+- ✅ All three detail pages work (`/projects/[slug]`, `/blog/[slug]`, `/lectures/[slug]`)
+- ✅ 404 handling for nonexistent slugs
+- ✅ Document uploads render with correct file-type badges
+- ✅ View button opens document in new tab
+- ✅ Download button forces download
+- ✅ External link resources work
+- ✅ Wagtail-generated URLs are correctly rewritten to use the API base
