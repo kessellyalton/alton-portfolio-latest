@@ -70,7 +70,7 @@ Detailed setup instructions for each part are in the respective folders:
 ## Author
 
 **Alton Kesselly**
-- Deputy Minister for Planning, Research & Development (2018–2024), Ministry of Education, Liberia
+- Former Deputy Minister for Planning, Research & Development (2018–2024), Ministry of Education, Liberia
 - Educator, Data Analyst, AI Researcher
 - Website: www.kessellyalton.com
 - Email: kessellyalton@outlook.com

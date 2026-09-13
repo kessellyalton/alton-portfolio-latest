@@ -1,0 +1,40 @@
+{% load wagtailadmin_tags %}
+
+<div class="panel nice-padding w-panel--dashboard">
+    <h2 class="w-panel__heading">Portfolio Overview</h2>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:16px;margin:20px 0;">
+        <a href="/admin/pages/" style="padding:16px;border:1px solid #e0e0e0;border-radius:8px;text-decoration:none;color:#333;background:#fff;">
+            <div style="font-size:28px;font-weight:700;">{{ project_count }}</div>
+            <div style="font-size:13px;color:#666;">Projects</div>
+        </a>
+        <a href="/admin/pages/" style="padding:16px;border:1px solid #e0e0e0;border-radius:8px;text-decoration:none;color:#333;background:#fff;">
+            <div style="font-size:28px;font-weight:700;">{{ blog_count }}</div>
+            <div style="font-size:13px;color:#666;">Blog Posts</div>
+        </a>
+        <a href="/admin/pages/" style="padding:16px;border:1px solid #e0e0e0;border-radius:8px;text-decoration:none;color:#333;background:#fff;">
+            <div style="font-size:28px;font-weight:700;">{{ lecture_count }}</div>
+            <div style="font-size:13px;color:#666;">Lectures</div>
+        </a>
+        <a href="/admin/snippets/home/service/" style="padding:16px;border:1px solid #e0e0e0;border-radius:8px;text-decoration:none;color:#333;background:#fff;">
+            <div style="font-size:28px;font-weight:700;">{{ service_count }}</div>
+            <div style="font-size:13px;color:#666;">Services</div>
+        </a>
+        <a href="/django-admin/ai_chat/chatlog/" style="padding:16px;border:1px solid #e0e0e0;border-radius:8px;text-decoration:none;color:#333;background:#fff;">
+            <div style="font-size:28px;font-weight:700;">{{ chat_count }}</div>
+            <div style="font-size:13px;color:#666;">AI Chats</div>
+        </a>
+        {% if flagged_chats %}
+        <a href="/django-admin/ai_chat/chatlog/?flagged__exact=1" style="padding:16px;border:1px solid #f0b429;border-radius:8px;text-decoration:none;color:#333;background:#fffbe6;">
+            <div style="font-size:28px;font-weight:700;color:#d97706;">{{ flagged_chats }}</div>
+            <div style="font-size:13px;color:#666;">Flagged Chats</div>
+        </a>
+        {% endif %}
+    </div>
+
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="{{ project_url }}" class="button button-primary">+ New Project</a>
+        <a href="{{ blog_url }}" class="button">+ New Blog Post</a>
+        <a href="{{ lecture_url }}" class="button">+ New Lecture</a>
+    </div>
+</div>
