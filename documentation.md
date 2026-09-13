@@ -1314,3 +1314,60 @@ Files:
 - YouTube/Vimeo embed via `NEXT_PUBLIC_INTRO_VIDEO_URL`
 
 **Config in `.env.local`:**
+
+## Phase 8 — Deployment
+
+### 🚨 REMINDER: Paused — Waiting for Domain
+
+**Status:** Paused until a custom domain is acquired.
+**Resume point:** Whenever you have a domain (e.g., `kessellyalton.com`).
+
+**When you come back:**
+1. `cd ~/Documents/alton-portfolio && git pull`
+2. Start both servers to confirm everything still works:
+   - Backend: `cd backend && source ../env/bin/activate && python manage.py runserver`
+   - Frontend: `cd frontend && npm run dev`
+3. Open `http://localhost:3000` — verify homepage, AI chat, dashboard all work
+4. Say **"Ready to deploy"** and pick up at Step 8.1 below
+
+---
+
+### Overview
+
+Deploy the portfolio to production with:
+- **Backend** (Django + Wagtail) → Railway or Render
+- **Frontend** (Next.js) → Vercel
+- **Database** → PostgreSQL (managed by host)
+- **Domain** → custom domain (or free subdomain initially)
+- **HTTPS** → automatic on both platforms
+
+**Estimated time:** 2–3 hours of guided work.
+
+---
+
+### Pre-Flight Checklist (Do Before Deploying)
+
+- [ ] **Domain acquired** — e.g., `kessellyalton.com` (or use free `*.vercel.app` first)
+- [ ] **GitHub repo is up to date** — `git push` everything
+- [ ] **Local works end-to-end** — verify homepage, chat, dashboard, projects, blog, lectures all load
+- [ ] **Media strategy decided:**
+  - **Option A** — keep files in `backend/media/` (simple; grows git repo over time)
+  - **Option B** — switch to Cloudflare R2 / AWS S3 (recommended for many large files)
+- [ ] **Free tier vs paid decided:**
+  - **Free tier is fine** — Railway ($5 credit/mo), Render (free tier), Vercel (hobby tier)
+  - **Paid starts at ~$5/mo** per service if you exceed free limits
+
+---
+
+### Step 8.1 — Deploy the Backend (Railway or Render)
+
+**Why Railway/Render:** Both support Django out of the box, provide managed PostgreSQL, and offer free tiers.
+
+#### 8.1.1 — Push Everything to GitHub First
+
+The deploy platforms pull from GitHub. Make sure everything is committed and pushed:
+
+```bash
+cd ~/Documents/alton-portfolio
+git status
+git push
