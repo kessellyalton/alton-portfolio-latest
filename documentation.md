@@ -1285,3 +1285,32 @@ Applied to both `imageUrl()` (in `lib/api.ts`) and `docUrl()` (in `resource-list
 - ✅ Download button forces download
 - ✅ External link resources work
 - ✅ Wagtail-generated URLs are correctly rewritten to use the API base
+
+## Phase 7.5 — Polish Tasks
+
+Four refinements completed after the detail pages.
+
+### 7.5.1 — CV Page
+
+Route: `app/cv/page.tsx`
+
+- Uses Node's `fs.existsSync` to detect if `public/alton-cv.pdf` exists
+- If present: shows download button, "open in new tab" button, and an embedded PDF preview
+- If missing: shows a friendly placeholder with instructions
+- `export const dynamic = "force-dynamic"` — file check runs at request time
+- Linked from header nav, homepage hero
+
+### 7.5.2 — Watch Intro Video Modal
+
+Files:
+- `components/intro-video-modal.tsx` — reusable modal
+- `components/hero-section.tsx` — state + trigger + render
+
+**Modal features:**
+- Click outside → close
+- Press `Escape` → close
+- Click × → close
+- Body scroll lock while open
+- YouTube/Vimeo embed via `NEXT_PUBLIC_INTRO_VIDEO_URL`
+
+**Config in `.env.local`:**

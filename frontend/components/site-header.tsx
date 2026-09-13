@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { label: "Projects", href: "/projects" },
   { label: "Lectures", href: "/lectures" },
   { label: "Blog", href: "/blog" },
+  { label: "CV", href: "/cv" },
   { label: "Contact", href: "/contact" },
 ];
 
@@ -44,7 +45,6 @@ export default function SiteHeader() {
 
         {/* CTA + Dashboard + Mobile Toggle */}
         <div className="flex items-center gap-2">
-          {/* Dashboard lock icon — subtle, links to private dashboard */}
           <Link
             href="/dashboard"
             aria-label="Dashboard"
@@ -131,7 +131,6 @@ export default function SiteHeader() {
               </Link>
             ))}
 
-            {/* Dashboard link for mobile */}
             <Link
               href="/dashboard"
               onClick={() => setMobileOpen(false)}

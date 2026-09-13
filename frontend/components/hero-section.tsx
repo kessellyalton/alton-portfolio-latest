@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import OpenChatButton from "@/components/open-chat-button";
+import IntroVideoModal from "@/components/intro-video-modal";
 
 const ROLES = [
   "AI Researcher",
@@ -39,6 +40,7 @@ export default function HeroSection() {
   const [roleIndex, setRoleIndex] = useState(0);
   const [displayed, setDisplayed] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [videoOpen, setVideoOpen] = useState(false);
 
   useEffect(() => {
     const current = ROLES[roleIndex];
@@ -72,7 +74,6 @@ export default function HeroSection() {
 
   return (
     <section className="relative overflow-hidden">
-      {/* Background gradient mesh */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/4 top-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-gold-400/8 blur-3xl" />
         <div className="absolute right-1/4 top-1/4 h-[500px] w-[500px] translate-x-1/2 rounded-full bg-electric-500/8 blur-3xl" />
@@ -81,9 +82,7 @@ export default function HeroSection() {
 
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8 lg:py-32">
         <div className="grid gap-16 lg:grid-cols-2 lg:items-center lg:gap-12">
-          {/* ═══ Left column — text ═══ */}
           <div>
-            {/* Availability badge */}
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-1.5 text-sm font-medium text-emerald-400">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -92,7 +91,6 @@ export default function HeroSection() {
               Available for freelance &amp; consulting
             </div>
 
-            {/* Name */}
             <h1 className="text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
               Hi, I&apos;m{" "}
               <span className="bg-gradient-to-r from-gold-400 via-gold-300 to-electric-400 bg-clip-text text-transparent">
@@ -100,14 +98,12 @@ export default function HeroSection() {
               </span>
             </h1>
 
-            {/* Typing effect */}
             <div className="mt-6 flex h-10 items-center font-mono text-xl text-ink-200 sm:text-2xl">
               <span className="text-ink-500">&gt;&nbsp;</span>
               <span>{displayed}</span>
               <span className="ml-1 inline-block h-6 w-[2px] animate-pulse bg-gold-400" />
             </div>
 
-            {/* Short bio */}
             <p className="mt-6 max-w-xl text-base leading-relaxed text-ink-300 sm:text-lg">
               I build AI systems, interactive dashboards, and digital tools
               for education and development. Former Deputy Minister of
@@ -115,7 +111,6 @@ export default function HeroSection() {
               software engineering.
             </p>
 
-            {/* CTAs */}
             <div className="mt-8 flex flex-wrap gap-3">
               <OpenChatButton className="group inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-gold-400 to-gold-500 px-6 py-3 font-semibold text-navy-950 shadow-lg transition-all hover:from-gold-300 hover:to-gold-400 hover:shadow-xl hover:shadow-gold-400/30">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -138,6 +133,7 @@ export default function HeroSection() {
 
               <button
                 type="button"
+                onClick={() => setVideoOpen(true)}
                 className="inline-flex items-center gap-2 rounded-lg border border-navy-700 bg-navy-900/60 px-6 py-3 font-semibold text-ink-100 backdrop-blur transition-all hover:border-electric-400 hover:bg-navy-800/60 hover:text-electric-300"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -147,7 +143,6 @@ export default function HeroSection() {
               </button>
             </div>
 
-            {/* Stats grid */}
             <div className="mt-12 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {STATS.map((stat) => (
                 <div
@@ -166,16 +161,10 @@ export default function HeroSection() {
             </div>
           </div>
 
-          {/* ═══ Right column — photo visual ═══ */}
           <div className="relative hidden items-center justify-center lg:flex">
             <div className="relative">
-              {/* Pulsing glow behind */}
               <div className="absolute -inset-6 animate-pulse rounded-full bg-gradient-to-r from-gold-400/25 via-electric-500/25 to-gold-400/25 blur-3xl" />
-
-              {/* Outer ring */}
               <div className="absolute -inset-3 rounded-full border border-gold-400/20" />
-
-              {/* Photo frame */}
               <div className="relative h-80 w-80 overflow-hidden rounded-full ring-2 ring-gold-400/60 xl:h-96 xl:w-96">
                 <Image
                   src="/alton.png"
@@ -185,11 +174,9 @@ export default function HeroSection() {
                   className="object-cover"
                   priority
                 />
-                {/* Subtle inner gradient overlay */}
                 <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-t from-navy-950/40 via-transparent to-transparent" />
               </div>
 
-              {/* Floating tech badges */}
               {TECH_BADGES.map((badge) => (
                 <div
                   key={badge.label}
@@ -204,6 +191,11 @@ export default function HeroSection() {
           </div>
         </div>
       </div>
+
+      <IntroVideoModal
+        isOpen={videoOpen}
+        onClose={() => setVideoOpen(false)}
+      />
     </section>
   );
 }
