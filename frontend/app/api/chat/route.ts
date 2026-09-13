@@ -1,5 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { convertToModelMessages, streamText } from "ai";
+import { buildKnowledgeBase } from "@/lib/knowledge-base";
 
 export const maxDuration = 30;
 
@@ -35,7 +36,8 @@ Guidelines:
 - Redirect off-topic questions politely.
 - Keep replies under 4 sentences unless detail is needed.
 - Never invent credentials.
-- Encourage contact page when relevant.`;
+- Encourage contact page when relevant.
+- When a "Portfolio Content" section appears below, use it to answer questions about Alton's SPECIFIC projects, blog posts, and lectures. Reference actual titles and details from that section. Never fabricate project names — if the section is empty for a category, say so honestly.`;
 
 export async function POST(req: Request) {
   try {
@@ -52,7 +54,10 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { messages } = body;
 
-    console.log("[/api/chat] received messages count:", Array.isArray(messages) ? messages.length : "not-array");
+    console.log(
+      "[/api/chat] received messages count:",
+      Array.isArray(messages) ? messages.length : "not-array"
+    );
 
     if (!Array.isArray(messages)) {
       console.error("[/api/chat] messages is not an array");
@@ -65,12 +70,24 @@ export async function POST(req: Request) {
     const modelMessages = await convertToModelMessages(messages);
     console.log("[/api/chat] converted messages count:", modelMessages.length);
 
+    // Fetch live portfolio content from Wagtail to give the AI full context.
+    // Cached for 5 minutes to avoid hitting the API on every message.
+    const knowledgeBase = await buildKnowledgeBase();
+    console.log(
+      "[/api/chat] knowledge base length:",
+      knowledgeBase.length,
+      "chars"
+    );
+    const fullSystemPrompt = knowledgeBase
+      ? `${SYSTEM_PROMPT}\n\n---\n\n${knowledgeBase}`
+      : SYSTEM_PROMPT;
+
     const result = streamText({
       // Use .chat() to force the Chat Completions endpoint.
       // The default groq("...") method calls /responses, which Groq does not
       // reliably support across all models.
       model: groq.chat("openai/gpt-oss-120b"),
-      system: SYSTEM_PROMPT,
+      system: fullSystemPrompt,
       messages: modelMessages,
       temperature: 0.7,
     });

@@ -1039,3 +1039,127 @@ Fetches in parallel with `Promise.all()` for speed.
 - ✅ Deep links (`?id=X`, `?filter=flagged`)
 - ✅ Header lock icon links to dashboard
 - ✅ Logout works
+
+## Phase 6 — RAG-Enhanced Chatbot
+
+### Overview
+
+Extended the chatbot with Retrieval-Augmented Generation using the simplest viable approach: **context stuffing**. All portfolio content (projects, blog posts, lectures) is fetched from Wagtail and injected into the AI's system prompt. The AI can now reference real, live content instead of guessing.
+
+### Why Context Stuffing (vs. Embeddings + Vector DB)
+
+Three RAG approaches were considered:
+
+| Approach | Complexity | Fit |
+|---|---|---|
+| **Context Stuffing** ✅ | Low | Perfect for portfolios |
+| True RAG with embeddings | High | Overkill under 50k tokens |
+| LLM-based retrieval | Medium | 2x latency for marginal gain |
+
+**Chosen: Context Stuffing.** Reasons:
+
+- **Content is small.** Even 50 projects + 100 blogs + 50 lectures fits well under Groq's 128k token window.
+- **Free-tier pricing is request-based, not token-based.** Tokens are free with Groq.
+- **No second API needed.** No embeddings, no vector DB, no extra services.
+- **Quality is actually higher.** No retrieval step to fail — the AI sees everything.
+- **Migration path exists.** If content ever grows to thousands of items, swap in true RAG behind the same `buildKnowledgeBase()` interface.
+
+### Step 6.1 — Knowledge Base Module (`lib/knowledge-base.ts`)
+
+Fetches all content in parallel, formats as markdown, caches for 5 minutes.
+
+    export async function buildKnowledgeBase(): Promise<string> {
+      // Check cache first
+      if (cache && Date.now() - cache.timestamp < CACHE_TTL_MS) {
+        return cache.content;
+      }
+      // Fetch projects, blogs, lectures in parallel
+      const [projects, posts, lectures] = await Promise.all([...]);
+      // Format as markdown sections
+      // Cache and return
+    }
+
+**Formatting rules:**
+- Projects: title, category, intro, tech stack, links
+- Blog posts: title, date, intro, reading time
+- Lectures: title, level, duration, lesson count, intro
+
+**Caching:** 5-minute TTL. Prevents hammering the Wagtail API on every chat message.
+
+**Error handling:** Each fetch is wrapped in `.catch(() => [])` so a failing section doesn't break the whole KB.
+
+### Step 6.2 — Wire Into Chat Route
+
+`app/api/chat/route.ts` updates:
+
+    const knowledgeBase = await buildKnowledgeBase();
+    const fullSystemPrompt = knowledgeBase
+      ? `${SYSTEM_PROMPT}\n\n---\n\n${knowledgeBase}`
+      : SYSTEM_PROMPT;
+
+    const result = streamText({
+      model: groq.chat("openai/gpt-oss-120b"),
+      system: fullSystemPrompt,   // ← was SYSTEM_PROMPT
+      messages: modelMessages,
+    });
+
+**System prompt guidance added:**
+> "When a 'Portfolio Content' section appears below, use it to answer questions about Alton's SPECIFIC projects, blog posts, and lectures. Reference actual titles and details. Never fabricate project names — if the section is empty, say so honestly."
+
+**Debug log:** `console.log("[/api/chat] knowledge base length:", knowledgeBase.length, "chars")` — tells you if content is being fetched.
+
+### Step 6.3 — Markdown Rendering in Chat Widget
+
+The AI returns markdown (bold, lists, links). The chat widget renders it with `react-markdown` + `remark-gfm`.
+
+**Packages:**
+
+    npm install react-markdown remark-gfm
+
+**Custom rendering** (so styles match the site):
+
+| Element | Styling |
+|---|---|
+| `**bold**` | Gold-colored bold |
+| `*italic*` | Italic, light ink |
+| `- item` | Indented bullet list |
+| `1. item` | Numbered list |
+| `[text](url)` | Electric-blue link, opens in new tab |
+| `` `code` `` | Gold monospace with dark background |
+| Headings | Bold, sized by level |
+
+**Why user messages stay plain text:** Users rarely type markdown, and rendering their input would be surprising. Only AI replies get markdown treatment.
+
+### Common Pitfalls (Phase 6)
+
+1. **KB length is 0** — check the terminal log. If `knowledge base length: 0 chars`, the Wagtail API is unreachable. Verify `NEXT_PUBLIC_API_URL` and that Django is running.
+
+2. **KB length is small (e.g., 654 chars)** — that's fine if you have no content. It's just the boilerplate "no items yet" sections. Create projects/posts/lectures in Wagtail and the length grows.
+
+3. **Cache staleness** — after creating new content in Wagtail, wait up to 5 minutes (or restart `npm run dev`) before the AI sees it.
+
+4. **Markdown not rendering** — verify `npm list react-markdown remark-gfm` shows both installed.
+
+5. **`**` visible in replies** — the message block wasn't wrapped in `<ReactMarkdown>`. Check the widget's `messages.map()` block.
+
+### Testing the RAG
+
+1. Create a project in Wagtail admin with a distinctive title
+2. Restart `npm run dev` (clears KB cache)
+3. Ask the chat: "What projects has Alton published?"
+4. Verify the AI references the exact title
+
+Expected terminal output:
+
+    [/api/chat] knowledge base length: 900 chars
+
+The number grows as you add content.
+
+### Phase 6 Exit Criteria
+
+- ✅ Chatbot references live Wagtail content
+- ✅ Markdown renders properly in AI replies
+- ✅ Knowledge base cached for 5 minutes
+- ✅ System prompt instructs the AI to use the KB
+- ✅ No fabricated project names
+- ✅ Graceful fallback when KB is empty

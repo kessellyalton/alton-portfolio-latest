@@ -6,6 +6,9 @@ import { useEffect, useRef, useState } from "react";
 import { getSessionId } from "@/lib/chat-session";
 import { logChat } from "@/lib/log-chat";
 
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 const SUGGESTIONS = [
   "What does Alton do?",
   "Show me his AI projects",
@@ -158,19 +161,85 @@ export default function ChatWidget() {
 
               if (!text) return null;
 
+              const isUser = m.role === "user";
+
               return (
                 <div
                   key={m.id}
-                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                  className={`flex ${isUser ? "justify-end" : "justify-start"}`}
                 >
                   <div
                     className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
-                      m.role === "user"
+                      isUser
                         ? "bg-gradient-to-br from-gold-400 to-gold-500 text-navy-950"
                         : "border border-navy-800 bg-navy-900/60 text-ink-200"
                     }`}
                   >
-                    {text}
+                    {isUser ? (
+                      text
+                    ) : (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({ children }) => (
+                            <p className="mb-2 last:mb-0">{children}</p>
+                          ),
+                          ul: ({ children }) => (
+                            <ul className="mb-2 ml-4 list-disc space-y-1 last:mb-0">
+                              {children}
+                            </ul>
+                          ),
+                          ol: ({ children }) => (
+                            <ol className="mb-2 ml-4 list-decimal space-y-1 last:mb-0">
+                              {children}
+                            </ol>
+                          ),
+                          li: ({ children }) => (
+                            <li className="leading-relaxed">{children}</li>
+                          ),
+                          strong: ({ children }) => (
+                            <strong className="font-semibold text-gold-300">
+                              {children}
+                            </strong>
+                          ),
+                          em: ({ children }) => (
+                            <em className="italic text-ink-100">{children}</em>
+                          ),
+                          a: ({ href, children }) => (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-electric-300 underline hover:text-electric-200"
+                            >
+                              {children}
+                            </a>
+                          ),
+                          code: ({ children }) => (
+                            <code className="rounded bg-navy-950/80 px-1.5 py-0.5 font-mono text-[12px] text-gold-200">
+                              {children}
+                            </code>
+                          ),
+                          h1: ({ children }) => (
+                            <h1 className="mb-2 text-base font-bold text-ink-100">
+                              {children}
+                            </h1>
+                          ),
+                          h2: ({ children }) => (
+                            <h2 className="mb-2 text-base font-bold text-ink-100">
+                              {children}
+                            </h2>
+                          ),
+                          h3: ({ children }) => (
+                            <h3 className="mb-1 text-sm font-bold text-ink-100">
+                              {children}
+                            </h3>
+                          ),
+                        }}
+                      >
+                        {text}
+                      </ReactMarkdown>
+                    )}
                   </div>
                 </div>
               );
