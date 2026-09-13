@@ -683,3 +683,230 @@ Both must run simultaneously.
 | Date | Change |
 |---|---|
 | 2026-09-13 | Initial creation — Phase 0, 1, 2, 3 documented |
+
+## Phase 4 — AI Chatbot
+
+### Overview
+
+A floating chat widget embedded on every page. Streams AI responses in real-time from Groq (free tier, OpenAI-compatible) and logs every conversation to the Django backend for review in the admin.
+
+### Architecture
+
+    ┌─────────────┐    POST /api/chat      ┌──────────────┐
+    │  Chat       │ ─────────────────────► │  Next.js API │
+    │  Widget     │                        │  Route       │
+    │  (client)   │ ◄──── streamed ─────── │              │
+    └─────────────┘       text             └──────┬───────┘
+                                                  │
+                                                  │ HTTPS
+                                                  ▼
+                                          ┌──────────────┐
+                                          │  Groq API    │
+                                          │  (LLM)       │
+                                          └──────────────┘
+
+    On finish, widget POSTs to backend:
+
+    ┌─────────────┐    POST /api/chat-log  ┌──────────────┐
+    │  Chat       │ ─────────────────────► │  Django      │
+    │  Widget     │                        │  ChatLog     │
+    └─────────────┘                        └──────────────┘
+
+### Step 4.1 — Install Packages
+
+    npm install ai @ai-sdk/openai @ai-sdk/react
+
+Current versions (Sept 2026):
+- `ai@7.x` — core SDK
+- `@ai-sdk/openai@4.x` — provider
+- `@ai-sdk/react@4.x` — `useChat` hook
+
+### Step 4.2 — Environment Variables
+
+Add to `frontend/.env.local`:
+
+    NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+    GROQ_API_KEY=gsk_...
+
+**Security:**
+- `.env.local` is gitignored — never committed
+- `GROQ_API_KEY` has **no** `NEXT_PUBLIC_` prefix → server-side only
+- Rotate the key immediately if it's ever exposed publicly
+
+**Free providers (no credit card):**
+| Provider | Free Tier | Card |
+|---|---|---|
+| Groq | 1,000 req/day | No |
+| Google AI Studio | 1,500 req/day | No |
+| Ollama (local) | Unlimited | No |
+
+### Step 4.3 — Chat API Route (`app/api/chat/route.ts`)
+
+Key elements:
+
+    import { createOpenAI } from "@ai-sdk/openai";
+    import { convertToModelMessages, streamText } from "ai";
+
+    export const maxDuration = 30;
+
+    const groq = createOpenAI({
+      baseURL: "https://api.groq.com/openai/v1",
+      apiKey: process.env.GROQ_API_KEY ?? "",
+    });
+
+    // In POST handler:
+    const modelMessages = await convertToModelMessages(messages);
+    const result = streamText({
+      model: groq.chat("openai/gpt-oss-120b"),
+      system: SYSTEM_PROMPT,
+      messages: modelMessages,
+    });
+    return result.toUIMessageStreamResponse();
+
+**Critical learnings:**
+
+| Issue | Solution |
+|---|---|
+| Edge runtime deprecated in Next 16 | Remove `export const runtime = "edge"` |
+| `convertToModelMessages` returns a Promise | Must `await` it |
+| AI SDK calls `/responses` instead of `/chat/completions` | Use `groq.chat(...)` instead of `groq(...)` |
+| Models deprecated silently | Verify with curl + list models endpoint |
+
+**Check current Groq models before using:**
+
+    KEY=$(grep GROQ_API_KEY .env.local | cut -d'=' -f2)
+    curl -s "https://api.groq.com/openai/v1/models" \
+      -H "Authorization: Bearer $KEY" | python3 -m json.tool
+
+**System prompt** — grounds the AI in Alton's background, skills, services, availability. Lives directly in the route file for simplicity; can be moved to a separate file later.
+
+### Step 4.4 — Chat Widget (`components/chat-widget.tsx`)
+
+`"use client"` component with:
+
+- Floating gold button (bottom-right)
+- Slide-up panel (380×560px)
+- Header with "AK" avatar + pulsing "Online" indicator
+- Messages area with user/assistant bubbles
+- Suggestion chips on empty state
+- Auto-scroll to bottom on new message
+- Animated "typing" dots while streaming
+
+**Global event listener** to open the widget from anywhere:
+
+    useEffect(() => {
+      const handler = () => setOpen(true);
+      window.addEventListener("open-chat", handler);
+      return () => window.removeEventListener("open-chat", handler);
+    }, []);
+
+**SDK v5+ message format:** `m.parts` (array of parts) instead of `m.content` (string).
+
+### Step 4.5 — `OpenChatButton` Component
+
+`components/open-chat-button.tsx` — reusable button that dispatches the event:
+
+    "use client";
+
+    export default function OpenChatButton({ children, className }) {
+      return (
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent("open-chat"))}
+          className={className}
+        >
+          {children}
+        </button>
+      );
+    }
+
+**Why:** Server Components (like `services/page.tsx`) can't have `onClick` handlers. This small client component bridges that gap.
+
+**Used in:**
+- `hero-section.tsx` — "Chat with my AI" CTA
+- `services/page.tsx` — "Ask my AI assistant" CTA
+- The floating button is separate (in `chat-widget.tsx` itself)
+
+### Step 4.6 — Chat Logging to Backend
+
+**Backend files:**
+
+`ai_chat/views.py`:
+    @csrf_exempt
+    @require_POST
+    def log_chat(request):
+        # Parses JSON, validates, creates ChatLog record
+
+`ai_chat/urls.py`:
+    urlpatterns = [path("chat-log/", views.log_chat, name="chat-log")]
+
+`backend/urls.py`:
+    path("api/", include("ai_chat.urls")),   # BEFORE the catch-all
+
+**Critical:** The `api/` include must come before `re_path(r"^", include(wagtail_urls))`, or Wagtail's page server swallows the request.
+
+**Frontend files:**
+
+`lib/chat-session.ts` — anonymous session ID stored in `sessionStorage`:
+
+    export function getSessionId(): string {
+      // Creates and stores ID like "sess-1757...-abc123" on first call
+    }
+
+`lib/log-chat.ts` — fire-and-forget POST that never breaks UX:
+
+    export async function logChat(payload) {
+      try {
+        await fetch(`${apiUrl}/api/chat-log/`, { method: "POST", ... });
+      } catch (err) {
+        console.warn("[log-chat] failed:", err);
+      }
+    }
+
+**Widget integration:** Uses `onFinish` callback:
+
+    useChat({
+      onFinish: ({ message }) => {
+        const aiText = extractTextFromParts(message.parts);
+        const userText = lastUserMessageRef.current;
+        if (!userText || !aiText) return;
+        logChat({ user_message: userText, ai_response: aiText, ... });
+      },
+    });
+
+The user message is captured in `lastUserMessageRef` because `onFinish` only receives the AI message, not the user's.
+
+### Common Pitfalls (Phase 4)
+
+1. **Exposing API keys in chat** — Never paste a live key anywhere public. Rotate immediately if leaked.
+
+2. **`NEXT_PUBLIC_` prefix leaks secrets** — Anything with this prefix ships to the browser. Keep `GROQ_API_KEY` server-side.
+
+3. **Groq model deprecation** — Models get decommissioned. Always `curl` the models endpoint to verify.
+
+4. **`/responses` vs `/chat/completions`** — AI SDK v5+ defaults to OpenAI's newer `/responses` endpoint. Groq doesn't fully support this; use `groq.chat(...)`.
+
+5. **`convertToModelMessages` is async** — Must `await`. Without it, `streamText` gets a Promise and errors with `messages.some is not a function`.
+
+6. **Route order in `backend/urls.py`** — Custom API routes before the Wagtail catch-all.
+
+7. **`"use client"` needed for `onClick`** — Server Components can't handle interactivity. Wrap in a small client component.
+
+8. **Message format in SDK v5+** — `m.parts`, not `m.content`.
+
+### Testing the Full Loop
+
+1. **Direct API test:** `curl` the chat route with `useChat`-shaped payload
+2. **Widget test:** Click a suggestion, watch the response stream
+3. **Log verification:** Check `django-admin/ai_chat/chatlog/` for the new entry
+4. **Dashboard count:** Wagtail admin "Portfolio Overview" shows "AI Chats: N"
+
+### Phase 4 Exit Criteria
+
+- ✅ Floating chat widget on every page
+- ✅ Streaming responses in real-time
+- ✅ 4 entry points: hero button, services CTA, floating button, global event
+- ✅ Every conversation logged to Django
+- ✅ Logs viewable in Django admin
+- ✅ Chat count shown on Wagtail dashboard
+- ✅ Free tier (Groq) — no credit card required

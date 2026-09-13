@@ -6,6 +6,7 @@ Routes:
 - /admin/           Wagtail admin (CMS)
 - /documents/       Wagtail document serving
 - /api/v2/          Wagtail REST API (consumed by Next.js frontend)
+- /api/chat-log/    Chat log endpoint (called by the AI widget)
 - /                Wagtail page serving (fallback)
 """
 from django.conf import settings
@@ -32,6 +33,9 @@ urlpatterns = [
 
     # Wagtail REST API v2
     path("api/v2/", api_router.urls),
+
+    # AI chat log endpoint
+    path("api/", include("ai_chat.urls")),
 
     # Wagtail page serving (MUST be last)
     re_path(r"^", include(wagtail_urls)),

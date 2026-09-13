@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import OpenChatButton from "@/components/open-chat-button";
 
 export const metadata: Metadata = {
   title: "Services",
@@ -258,12 +259,9 @@ export default function ServicesPage() {
           >
             Start a conversation
           </Link>
-          <Link
-            href="/chat"
-            className="inline-flex items-center gap-2 rounded-lg border border-navy-700 bg-navy-900/60 px-6 py-3 font-semibold text-ink-100 transition-all hover:border-electric-400 hover:text-electric-300"
-          >
+          <OpenChatButton className="inline-flex items-center gap-2 rounded-lg border border-navy-700 bg-navy-900/60 px-6 py-3 font-semibold text-ink-100 transition-all hover:border-electric-400 hover:text-electric-300">
             Ask my AI assistant
-          </Link>
+          </OpenChatButton>
         </div>
       </section>
     </div>
