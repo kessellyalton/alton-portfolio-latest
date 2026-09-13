@@ -726,3 +726,390 @@ The catch-all `re_path(r"^", include(wagtail_urls))` must be **last**. Otherwise
 - ✅ Custom "Portfolio Overview" dashboard panel
 - ✅ Seed command for reproducible initial content
 - ✅ `.env` protected, `.env.example` committed
+
+## Phase 3 — Frontend: Next.js + Tailwind
+
+### Overview
+
+The frontend is a **Next.js 16.3.5** app using:
+- **App Router** — modern file-based routing
+- **TypeScript** — type safety
+- **Tailwind CSS v4** — utility-first styling with CSS-native configuration
+- **Turbopack** — ultra-fast bundler (default in Next.js 16)
+- **ESLint** — code quality
+
+The frontend consumes JSON from the Wagtail API at `http://127.0.0.1:8000/api/v2/`.
+
+### Step 3.1 — Create the Next.js App
+
+From the project root (`~/Documents/alton-portfolio`):
+
+    npx create-next-app@latest frontend
+
+**Answers to prompts:**
+
+| Prompt | Answer |
+|---|---|
+| Recommended Next.js defaults? | No, customize settings |
+| TypeScript? | Yes |
+| Which linter? | ESLint |
+| React Compiler? | No (keep it simple first) |
+| Tailwind CSS? | Yes |
+| Use `src/` directory? | No (flatter paths) |
+| App Router? | Yes |
+| Customize import alias? | No (keep `@/*` default) |
+| Include AGENTS.md? | Yes (helps AI coding assistants) |
+
+**Result:** Next.js **16.3.5** with React 19, Tailwind v4, TypeScript 5.
+
+**Verify no nested .git was created:**
+
+    ls -la frontend/.git 2>/dev/null && echo "Nested .git found!" || echo "No nested .git"
+
+If found, remove it: `rm -rf frontend/.git`
+
+### Step 3.2 — Understand the Tailwind v4 Approach
+
+Next.js 16 with Tailwind v4 uses a **CSS-first config**. There is no `tailwind.config.ts` file. Instead, custom colors and animations are declared in `app/globals.css` inside an `@theme { ... }` block.
+
+**Verify the version:**
+
+    cat frontend/package.json | grep tailwind
+
+Expect: `"tailwindcss": "^4"` and `"@tailwindcss/postcss": "^4"`.
+
+### Step 3.3 — Configure the Design System (`app/globals.css`)
+
+The `@theme` block defines our color tokens, which Tailwind turns into utility classes automatically.
+
+**Color palette:**
+
+| Family | Purpose | Example utility |
+|---|---|---|
+| `navy-950` … `navy-500` | Backgrounds, surfaces | `bg-navy-900` |
+| `gold-600` … `gold-200` | Primary accent | `text-gold-400`, `bg-gold-400` |
+| `electric-700` … `electric-300` | Secondary accent | `text-electric-400` |
+| `emerald-700` … `emerald-400` | Success states | `text-emerald-500` |
+| `ink-50` … `ink-700` | Text, borders | `text-ink-300`, `border-ink-700` |
+
+**Custom animations:**
+
+| Name | Class | Purpose |
+|---|---|---|
+| `fade-up` | `animate-fade-up` | Scroll-reveal entrance |
+| `shimmer` | `animate-shimmer` | Loading states |
+| `float` | `animate-float` | Floating badge movement |
+
+**Base styles added:**
+- `html { scroll-behavior: smooth }` — smooth anchor navigation
+- `body { bg-navy-950, text-ink-100 }` — dark theme
+- Custom scrollbar (navy track, lighter thumb)
+- `::selection { bg-gold-400, text-navy-950 }` — selection color
+- `:focus-visible` outline in gold — accessibility
+
+### Step 3.4 — Update `app/layout.tsx`
+
+The root layout defines:
+- Font loading (`Geist Sans`, `Geist Mono`)
+- Comprehensive `metadata` (title templates, description, keywords, Open Graph, Twitter card)
+- The site shell (`<SiteHeader />`, `<main>`, `<SiteFooter />`)
+
+**Key pattern:** `metadata.title` uses a **template** so child pages can override just the page-specific title:
+
+    title: {
+      default: "Alton Kesselly — AI Researcher & Full-Stack Developer",
+      template: "%s | Alton Kesselly",
+    }
+
+A child page returning `export const metadata = { title: "About" }` will render as **"About | Alton Kesselly"**.
+
+### Step 3.5 — Create `components/site-header.tsx`
+
+Sticky, translucent header with backdrop blur.
+
+**Features:**
+- Gold gradient "AK" logo (scales on hover)
+- Desktop nav (6 links): Home, About, Services, Projects, Lectures, Blog
+- "Hire Me" CTA in gold gradient
+- Mobile hamburger toggle with `useState` — opens a slide-down menu
+- All nav links use `text-ink-300 hover:text-gold-300` and `hover:bg-navy-800/60`
+
+**Why `"use client"` at the top:** The mobile menu uses `useState`, which requires a client component. Server Components are the default in Next.js App Router.
+
+### Step 3.6 — Centralize Socials (`lib/socials.tsx`)
+
+All 7 social links (X, LinkedIn, Instagram, TikTok, GitHub, YouTube, Facebook) are defined once in `lib/socials.tsx` and imported by any component that needs them.
+
+**IMPORTANT:** The file is `.tsx`, not `.ts`, because it contains JSX (`<svg>` elements). A `.ts` file cannot contain JSX.
+
+**The `Social` type:**
+
+    export type Social = {
+      label: string;
+      href: string;
+      color: string;    // brand hex, used for hover glow
+      hoverBg: string;  // Tailwind hover classes for bg + border
+      icon: ReactNode;
+    };
+
+**Why centralize:** Single source of truth. Changing a URL means editing one file, not every component that references it.
+
+### Step 3.7 — Create `components/site-footer.tsx`
+
+Three-column footer:
+- **Brand** — AK logo, tagline
+- **Explore** — quick links in a 2-column grid
+- **Connect** — 7 social icons in a 4-column grid
+
+**Social icon hover effects:**
+- Lift: `hover:-translate-y-1`
+- Border + background tint in brand color (from the `hoverBg` string in `socials.tsx`)
+- Icon color transitions to brand color using a CSS variable: `group-hover:text-[var(--brand-color)]`
+- Tooltip appears above the icon
+
+**Note on dynamic CSS variables in Tailwind:** Because we set `style={{ "--brand-color": social.color }}` inline, Tailwind can't statically generate a class for it. We use an arbitrary value class `group-hover:text-[var(--brand-color)]` to reference it at runtime.
+
+---
+
+## Common Pitfalls (Phase 3)
+
+### 1. `.ts` vs `.tsx` for Files with JSX
+**Error:** `Expected '>', got 'ident'` on an `<svg>` or other JSX tag.
+
+**Cause:** The file uses `.ts` but contains JSX.
+
+**Fix:** Rename to `.tsx`:
+
+    mv lib/socials.ts lib/socials.tsx
+
+The import path stays the same (`from "@/lib/socials"`) because TypeScript resolves both extensions.
+
+### 2. Tailwind v4 Has No `tailwind.config.ts`
+In v4, config lives in `globals.css` inside `@theme { ... }`. Custom colors become utilities like `bg-navy-900` automatically.
+
+### 3. `bg-zinc-50` Covering the Theme
+Next.js's default `page.tsx` wraps content in a `<div>` with `bg-zinc-50 dark:bg-black`. This overrides the `body` background from `globals.css`. **Fix:** Replace `page.tsx` with a page that doesn't override the background.
+
+### 4. `useState` Requires `"use client"`
+Server Components can't use React hooks. Add `"use client"` at the top of any file using `useState`, `useEffect`, event handlers, or browser APIs.
+
+### 5. VS Code Silent Save Failure
+A recurring gotcha. **Always press `Ctrl+S` after pasting.** Verify files were saved with `wc -l`.
+
+**Workaround:** Use terminal heredocs for critical files:
+
+    cat > path/to/file << 'EOF'
+    ...content...
+    EOF
+
+### 6. `@/*` Import Alias
+`@/components/site-header` maps to `frontend/components/site-header.tsx`. Configured automatically by `create-next-app`. **Don't** change it — the default works everywhere.
+
+---
+
+## Phase 3 Progress Checklist
+
+- ✅ Next.js 16.3.5 with App Router, TypeScript, Tailwind v4
+- ✅ Design system in `globals.css` (navy/gold/electric/emerald/ink palette)
+- ✅ Custom animations (fade-up, shimmer, float)
+- ✅ Root layout with SEO metadata
+- ✅ `SiteHeader` with sticky nav + mobile menu
+- ✅ `SiteFooter` with quick links + 7 social icons
+- ✅ Centralized socials in `lib/socials.tsx`
+- ⏳ Hero section (in progress)
+- ⏳ About, Services, Projects, Lectures, Blog pages
+- ⏳ AI chatbot widget
+- ⏳ Private dashboard
+
+---
+
+## Development Workflow
+
+Run two terminals in parallel:
+
+**Terminal 1 — Backend:**
+
+    cd ~/Documents/alton-portfolio/backend
+    source ../env/bin/activate
+    python manage.py runserver
+
+Serves at `http://127.0.0.1:8000`.
+
+**Terminal 2 — Frontend:**
+
+    cd ~/Documents/alton-portfolio/frontend
+    npm run dev
+
+Serves at `http://localhost:3000`.
+
+CORS is already configured on the backend to allow `http://localhost:3000`.
+
+## Phase 3 Progress Checklist
+
+- ✅ Next.js 16.3.5 with App Router, TypeScript, Tailwind v4
+- ✅ Design system in `globals.css` (navy/gold/electric/emerald/ink palette)
+- ✅ Custom animations (fade-up, shimmer, float, marquee)
+- ✅ Root layout with SEO metadata
+- ✅ `SiteHeader` with sticky nav + mobile menu
+- ✅ `SiteFooter` with quick links + 7 social icons
+- ✅ Centralized socials in `lib/socials.tsx`
+- ✅ **Hero section** — photo with gold-ringed circle, typing animation, 6 floating tech badges, 3 CTAs, 4 stat cards
+- ✅ **Tech marquee** — 30 items scrolling continuously below hero
+- ✅ **`components/hero-section.tsx`** — 210 lines
+- ✅ **`components/tech-marquee.tsx`** — 69 lines
+- ✅ **`public/alton.png`** — hero photo
+- ⏳ About, Services, Projects, Lectures, Blog, Contact pages
+- ⏳ AI chatbot widget
+- ⏳ Private dashboard
+
+---
+
+## Step 3.8 — Hero Section with Photo
+
+### What It Contains
+
+| Element | Purpose |
+|---|---|
+| Green pulsing badge | "Available for freelance & consulting" |
+| Gradient name | "Alton Kesselly" in gold→blue |
+| Typing animation | Cycles 5 roles with cursor |
+| Bio paragraph | Short intro |
+| 3 CTAs | Chat with my AI, Download CV, Watch Intro |
+| 4 stat cards | $300M+, 8+, 5, 2 |
+| Photo frame | 320×320 / 384×384 circular with gold ring |
+| 6 floating badges | Python, PyTorch, ROS2, Next.js, TensorFlow, React |
+| Background mesh | Gold + blue + emerald blurs |
+
+### Photo Setup
+
+Photo stored at `frontend/public/alton.png`. Referenced in code with:
+
+    <Image
+      src="/alton.png"
+      alt="Alton Kesselly"
+      fill
+      sizes="(max-width: 1280px) 320px, 384px"
+      className="object-cover"
+      priority
+    />
+
+**CRITICAL:** Files with JSX (like `lib/socials.tsx`) must use `.tsx` extension, not `.ts`. A `.ts` file cannot contain `<svg>` or any JSX.
+
+### Recommended Image Size
+
+- **Square** (1:1 aspect ratio)
+- **800×800px minimum** (or larger for retina)
+- **Under 500KB** if possible (run through an optimizer)
+- Focus on **head + shoulders + upper chest** — the CSS circular crop will trim everything outside
+
+### The 6 Floating Badges
+
+Positions use Tailwind utility classes:
+
+    const TECH_BADGES = [
+      { label: "Python", emoji: "🐍", color: "text-gold-300", pos: "-left-6 top-12", delay: "0s" },
+      { label: "PyTorch", emoji: "🔥", color: "text-electric-300", pos: "-right-4 top-20", delay: "0.8s" },
+      { label: "ROS2", emoji: "🤖", color: "text-emerald-300", pos: "-left-10 top-1/2", delay: "1.6s" },
+      { label: "Next.js", emoji: "▲", color: "text-ink-100", pos: "-right-8 top-1/2", delay: "2.4s" },
+      { label: "TensorFlow", emoji: "🧠", color: "text-gold-300", pos: "-left-8 bottom-24", delay: "3.2s" },
+      { label: "React", emoji: "⚛️", color: "text-electric-300", pos: "-right-6 bottom-20", delay: "4s" },
+    ];
+
+The `delay` value staggers the `animate-float` animation so badges don't move in sync.
+
+## Step 3.9 — Tech Marquee
+
+A full-width strip that scrolls continuously below the hero. Shows **30 items** — your complete skill range including Mathematics, Physics, Education Policy.
+
+### How It Works
+
+Two identical rows, each with `animate-marquee`, scroll off-screen while a duplicate row follows. When the first row finishes, the second takes its place, and the loop restarts — creating a seamless infinite scroll.
+
+### CSS Required
+
+In `app/globals.css`, inside `@theme { ... }`:
+
+    --animate-marquee: marquee 40s linear infinite;
+
+Outside the `@theme` block:
+
+    @keyframes marquee {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-100%); }
+    }
+
+### Why Use a Marquee
+
+| Benefit | Why it matters |
+|---|---|
+| Shows breadth | 30 items in a small space |
+| Non-static | Grabs attention without being loud |
+| Modern feel | Used by Linear, Vercel, Stripe |
+| Reusable | Can drop into "Skills" section later |
+
+---
+
+## Frontend File Structure So Far
+
+    frontend/
+    ├── app/
+    │   ├── favicon.ico
+    │   ├── globals.css        # Design system + Tailwind v4 theme
+    │   ├── layout.tsx         # Site shell with header + footer
+    │   └── page.tsx           # Homepage: Hero + Marquee
+    ├── components/
+    │   ├── hero-section.tsx
+    │   ├── site-header.tsx
+    │   ├── site-footer.tsx
+    │   └── tech-marquee.tsx
+    ├── lib/
+    │   └── socials.tsx        # Centralized social links (must be .tsx)
+    ├── public/
+    │   ├── alton.png
+    │   └── (default SVGs)
+    └── package.json
+
+---
+
+## Development Workflow
+
+**Terminal 1 — Backend:**
+
+    cd ~/Documents/alton-portfolio/backend
+    source ../env/bin/activate
+    python manage.py runserver
+
+**Terminal 2 — Frontend:**
+
+    cd ~/Documents/alton-portfolio/frontend
+    npm run dev
+
+---
+
+## Lessons Learned (Phase 3)
+
+### `.ts` vs `.tsx`
+
+Files containing JSX need `.tsx`. Renaming doesn't require import changes — Next.js resolves both.
+
+### Shell Location Matters
+
+Always check your prompt before running `code <file>`:
+
+- `~/Documents/alton-portfolio` → project root
+- `~/Documents/alton-portfolio/frontend` → frontend
+- `~/Documents/alton-portfolio/backend` → backend
+
+Creating files in the wrong place wastes time and pollutes the repo.
+
+### Hydration Warnings from Extensions
+
+`cz-shortcut-listen="true"` on `<body>` is injected by the **ColorZilla** browser extension. Add `suppressHydrationWarning` to `<html>` and `<body>` to silence.
+
+### Default `page.tsx` Overrides Theme
+
+`create-next-app` wraps content in `bg-zinc-50 dark:bg-black`, overriding our body background. Replacing `page.tsx` solves it.
+
+### Marquee CSS-Only
+
+Animations like the infinite scroll marquee are pure CSS — no JS needed. Just `@keyframes` + `animation: marquee 40s linear infinite`.
