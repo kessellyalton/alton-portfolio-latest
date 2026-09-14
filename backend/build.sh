@@ -10,3 +10,6 @@ python manage.py collectstatic --no-input
 
 # Run migrations
 python manage.py migrate
+
+# Idempotent production bootstrap (site host, seed, superuser)
+python manage.py bootstrap_production
