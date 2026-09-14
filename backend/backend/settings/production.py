@@ -15,15 +15,13 @@ ALLOWED_HOSTS = [
     if h.strip()
 ]
 
-# Railway/Render sit behind a proxy — trust its HTTPS signal
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# HTTPS enforcement (env-controlled in case of redirect loops on first deploy)
 SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "True") == "True"
 SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "True") == "True"
 CSRF_COOKIE_SECURE = os.environ.get("CSRF_COOKIE_SECURE", "True") == "True"
 
-SECURE_HSTS_SECONDS = 31536000  # 1 year
+SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
@@ -34,7 +32,6 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # ─── Database ─────────────────────────────────────
-# Railway/Render provide DATABASE_URL — use it if present
 if os.environ.get("DATABASE_URL"):
     DATABASES = {
         "default": dj_database_url.config(
@@ -57,8 +54,13 @@ STORAGES = {
 }
 
 # ─── CORS ─────────────────────────────────────────
-CORS_ALLOWED_ORIGINS = [
-    o.strip()
-    for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
-    if o.strip()
-]
+# Read from CORS_ALLOWED_ORIGINS if set; otherwise fall back to FRONTEND_URL.
+_cors_env = os.environ.get("CORS_ALLOWED_ORIGINS", "").strip()
+if _cors_env:
+    CORS_ALLOWED_ORIGINS = [
+        o.strip() for o in _cors_env.split(",") if o.strip()
+    ]
+else:
+    # Fall back to FRONTEND_URL (which base.py already parsed)
+    _frontend = os.environ.get("FRONTEND_URL", "").strip()
+    CORS_ALLOWED_ORIGINS = [_frontend] if _frontend else []
