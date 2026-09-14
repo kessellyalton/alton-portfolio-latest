@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   webpack: (config) => {
     config.resolve.alias = {
       ...(config.resolve.alias ?? {}),
-      "@": path.resolve(process.cwd()),
+      "@": path.resolve(__dirname),
     };
     return config;
   },
