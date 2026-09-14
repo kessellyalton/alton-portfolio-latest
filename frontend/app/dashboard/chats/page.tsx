@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 type ChatLog = {
@@ -16,7 +16,7 @@ type ChatLog = {
 const API_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-export default function ChatsPage() {
+function ChatsPageContent() {
   const searchParams = useSearchParams();
   const filter = searchParams.get("filter");
   const initialId = searchParams.get("id");
@@ -126,7 +126,6 @@ export default function ChatsPage() {
 
       {chats.length > 0 && (
         <div className="grid gap-4 lg:grid-cols-5">
-          {/* ═══ List ═══ */}
           <div className="lg:col-span-2">
             <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
               {chats.map((chat) => (
@@ -162,7 +161,6 @@ export default function ChatsPage() {
             </div>
           </div>
 
-          {/* ═══ Detail ═══ */}
           <div className="lg:col-span-3">
             {selectedChat ? (
               <div className="sticky top-24 rounded-2xl border border-navy-800 bg-navy-900/40 p-6 backdrop-blur">
@@ -215,5 +213,19 @@ export default function ChatsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ChatsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-xl border border-navy-800 bg-navy-900/40 p-5 text-sm text-ink-400">
+          Loading chats...
+        </div>
+      }
+    >
+      <ChatsPageContent />
+    </Suspense>
   );
 }
