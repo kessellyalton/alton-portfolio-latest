@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
-import { getBlogPosts, imageUrl, type BlogPage } from "@/lib/api";
+import { getBlogPosts, imageUrl, type BlogPage } from "../../lib/api";
 
 export const metadata: Metadata = {
   title: "Blog",

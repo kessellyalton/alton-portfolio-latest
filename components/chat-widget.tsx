@@ -3,8 +3,8 @@
 import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
 
-import { getSessionId } from "@/lib/chat-session";
-import { logChat } from "@/lib/log-chat";
+import { getSessionId } from "../lib/chat-session";
+import { logChat } from "../lib/log-chat";
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";

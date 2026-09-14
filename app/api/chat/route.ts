@@ -1,6 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { convertToModelMessages, streamText } from "ai";
-import { buildKnowledgeBase } from "@/lib/knowledge-base";
+import { buildKnowledgeBase } from "../../../lib/knowledge-base";
 
 export const maxDuration = 30;
 

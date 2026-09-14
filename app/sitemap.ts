@@ -4,7 +4,7 @@ import {
   getBlogPosts,
   getLectures,
   getProjects,
-} from "@/lib/api";
+} from "../lib/api";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";

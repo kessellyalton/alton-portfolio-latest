@@ -3,8 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getProjectBySlug, imageUrl } from "@/lib/api";
-import StreamField from "@/components/streamfield";
+import { getProjectBySlug, imageUrl } from "../../../lib/api";
+import StreamField from "../../../components/streamfield";
 
 export const revalidate = 60;
 

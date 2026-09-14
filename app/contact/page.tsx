@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SOCIALS } from "@/lib/socials";
+import { SOCIALS } from "../../lib/socials";
 
 const CONTACT_INFO = [
   {

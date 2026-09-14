@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import { getFeaturedProjects, imageUrl } from "@/lib/api";
+import { getFeaturedProjects, imageUrl } from "../lib/api";
 
 const CATEGORY_LABELS: Record<string, string> = {
   ai_ml: "AI & Machine Learning",

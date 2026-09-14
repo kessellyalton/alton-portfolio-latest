@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import OpenChatButton from "@/components/open-chat-button";
+import OpenChatButton from "../../components/open-chat-button";
 
 export const metadata: Metadata = {
   title: "Services",

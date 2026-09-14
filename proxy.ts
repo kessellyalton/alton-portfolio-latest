@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { COOKIE_NAME, isValidToken } from "@/lib/auth";
+import { COOKIE_NAME, isValidToken } from "./lib/auth";
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

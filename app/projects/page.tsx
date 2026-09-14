@@ -6,7 +6,7 @@ import {
   getProjects,
   imageUrl,
   type ProjectPage,
-} from "@/lib/api";
+} from "../../lib/api";
 
 export const metadata: Metadata = {
   title: "Projects",

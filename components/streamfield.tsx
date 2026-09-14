@@ -1,6 +1,6 @@
 import Image from "next/image";
 
-import { imageUrl, type WagtailImage } from "@/lib/api";
+import { imageUrl, type WagtailImage } from "../lib/api";
 
 type Block = {
   type: string;

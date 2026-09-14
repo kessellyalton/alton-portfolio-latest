@@ -3,8 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import OpenChatButton from "@/components/open-chat-button";
-import IntroVideoModal from "@/components/intro-video-modal";
+import OpenChatButton from "./open-chat-button";
+import IntroVideoModal from "./intro-video-modal";
 
 const ROLES = [
   "AI Researcher",

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import LogoutButton from "@/components/logout-button";
+import LogoutButton from "../../components/logout-button";
 
 const NAV = [
   { label: "Overview", href: "/dashboard", icon: "▦" },

@@ -3,9 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getLectureBySlug, imageUrl } from "@/lib/api";
-import StreamField from "@/components/streamfield";
-import ResourceList from "@/components/resource-list";
+import { getLectureBySlug, imageUrl } from "../../../lib/api";
+import StreamField from "../../../components/streamfield";
+import ResourceList from "../../../components/resource-list";
 
 export const revalidate = 60;
 

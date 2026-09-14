@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SOCIALS } from "@/lib/socials";
+import { SOCIALS } from "../lib/socials";
 
 const QUICK_LINKS = [
   { label: "About", href: "/about" },
