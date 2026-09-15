@@ -281,3 +281,68 @@ export function imageUrl(image: WagtailImage | null): string | null {
   const url = resolveMediaUrl(image.meta.download_url);
   return url || null;
 }
+
+
+// ─── RAG Chat Context (hybrid retrieval) ───────────
+
+/**
+ * Response shape from Django's /api/chat/context/ endpoint.
+ * Retrieval-only — no LLM call.
+ */
+export type RAGChunk = {
+  title: string;
+  type: string;
+  url: string;
+  score: number | null;
+};
+
+export type RAGContext = {
+  context: string;
+  chunks: RAGChunk[];
+};
+
+/**
+ * Fetch semantic retrieval context from the Django RAG endpoint.
+ *
+ * The Next.js chat route calls this before streaming from Groq.
+ * Returns the top-k relevant portfolio chunks as a formatted
+ * markdown context string plus a structured chunk list.
+ *
+ * On any error, returns an empty context so the chat can still
+ * work (falls back to no-RAG mode).
+ */
+export async function getRAGContext(
+  query: string,
+  topK: number = 3
+): Promise<RAGContext> {
+  const empty: RAGContext = { context: "", chunks: [] };
+
+  if (!query.trim()) return empty;
+
+  try {
+    const url = `${API_BASE}/api/chat/context/?q=${encodeURIComponent(
+      query
+    )}&k=${topK}`;
+
+    const res = await fetch(url, {
+      // No cache — the query is unique per message
+      cache: "no-store",
+      // Short timeout so a slow Django doesn't block the LLM stream
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      console.warn(`[getRAGContext] Django returned ${res.status}`);
+      return empty;
+    }
+
+    const data = (await res.json()) as Partial<RAGContext>;
+    return {
+      context: data.context ?? "",
+      chunks: data.chunks ?? [],
+    };
+  } catch (err) {
+    console.warn("[getRAGContext] Failed:", err);
+    return empty;
+  }
+}

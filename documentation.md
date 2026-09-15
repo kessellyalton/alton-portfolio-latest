@@ -1556,3 +1556,49 @@ Both share the same Upstash backend. They're two interfaces to the same retrieva
     "GET /api/chat/context/ HTTP/1.1" 400
 
 ---
+### Step 9.4 — Frontend Helper (`lib/api.ts`)
+
+Added `getRAGContext(query, topK)` to `lib/api.ts`. This is the only place the frontend talks to the Django RAG endpoint — keeping the RAG layer centralized.
+
+**TypeScript types:**
+
+    export type RAGChunk = {
+      title: string;
+      type: string;
+      url: string;
+      score: number | null;
+    };
+
+    export type RAGContext = {
+      context: string;
+      chunks: RAGChunk[];
+    };
+
+**The helper:**
+
+    export async function getRAGContext(
+      query: string,
+      topK: number = 3
+    ): Promise<RAGContext> {
+      // Returns { context, chunks }
+      // Falls back to empty context on any error
+    }
+
+**Key design decisions:**
+
+| Decision | Why |
+|---|---|
+| `cache: "no-store"` | Each query is unique — no caching benefit |
+| `AbortSignal.timeout(5000)` | If Django is slow, don't block the LLM stream. 5s is generous |
+| Returns empty context on error | Chat still works — just without RAG enrichment. Never fails loudly to the user |
+| `console.warn` instead of `console.error` | The RAG layer failing isn't fatal — it's a degraded mode |
+| `topK` defaults to 3 | Balanced: enough context without bloating the prompt |
+
+**Why this belongs in `lib/api.ts`:**
+
+Every backend call goes through this file. Adding `getRAGContext` here means:
+- One place to change the URL or add auth headers later
+- Consistent error handling across all API calls
+- Easy to test / mock in isolation
+
+---
