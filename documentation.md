@@ -1661,3 +1661,61 @@ Fix: either delete the stray `/home/alton/package-lock.json`, or add
 `outputFileTracingRoot: __dirname` to `next.config.ts`. Not blocking.
 
 ---
+### Step 9.6 — Live End-to-End Test (Hybrid RAG Verified)
+
+**Test conditions:**
+- Backend running on http://127.0.0.1:8000
+- Frontend running on http://localhost:3000
+- User asked in the chat widget: **"What projects has Alton published?"**
+
+**Frontend terminal output:**
+
+    [/api/chat] incoming request
+    [/api/chat] received messages count: 1
+    [/api/chat] user query: What projects have Alton published?
+    [/api/chat] RAG chunks retrieved: 3 context length: 300 chars
+    [/api/chat] converted messages count: 1
+    [/api/chat] streamText created, returning response
+     POST /api/chat 200 in 3.2s
+
+**Backend terminal output:**
+
+    "GET /api/chat/context/?q=What%20projects%20have%20Alton%20published%3F&k=3 HTTP/1.1" 200 746
+    "OPTIONS /api/chat-log/ HTTP/1.1" 200 0
+    "POST /api/chat-log/ HTTP/1.1" 201 60
+
+**Chat response:**
+
+> Alton's published project portfolio includes:
+>
+> **Education KPI Dashboard** – an interactive data-visualization tool for tracking key performance indicators across Liberia's education system. You can view it here: /projects/education-kpi-dashboard
+>
+> If you'd like to discuss similar projects or explore new collaborations, feel free to reach out via the contact page.
+
+**Analysis:**
+
+| Stage | Result |
+|---|---|
+| Frontend extracts latest user message | ✅ |
+| Frontend calls Django `/api/chat/context/` | ✅ (200, 746 bytes) |
+| Upstash returns 3 semantic chunks | ✅ |
+| Context injected into system prompt | ✅ (300 chars) |
+| Groq streams response | ✅ |
+| Response references real content | ✅ (exact project title and URL) |
+| Chat logged to Django | ✅ (201 Created) |
+
+**Key improvement over context stuffing:**
+
+The AI referenced a **specific project by exact URL** — proving semantic retrieval found the right chunk. Under the old context-stuffing approach, the AI would have seen all content but with lower signal-to-noise. Under hybrid RAG, only the top-3 relevant chunks reach the LLM.
+
+### Phase 9 Exit Criteria
+
+- ✅ Django `/api/chat/context/` endpoint retrieves top-k chunks from Upstash
+- ✅ Next.js `getRAGContext()` helper wraps the Django call with graceful fallback
+- ✅ Chat route injects retrieved context into the system prompt
+- ✅ Streaming preserved — user sees tokens as they arrive
+- ✅ Semantic retrieval verified — AI references real content by exact title and URL
+- ✅ Chat logging still works — every conversation recorded in Django
+- ✅ Backend `ask_chat` (full RAG + LLM) retained for future Slack/WhatsApp integration
+
+---
