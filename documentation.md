@@ -1907,3 +1907,121 @@ Django's default logging only shows `WARNING` and above. Our signal handlers use
 | Delete a project | Signal → vector removed |
 
 ---
+### Step 9.14 — Portable Content Export (`dump_content`)
+
+**Problem:** Production Neon DB was empty. Local content lived only in SQLite.
+
+**Solution:** A JSON-based export/import workflow that survives deployment without shell access.
+
+**New file: `backend/home/management/commands/dump_content.py`**
+
+Reads all live+public Projects, Blogs, and Lectures and writes a portable JSON to `home/fixtures/content.json`.
+
+**Key design decisions:**
+
+| Decision | Why |
+|---|---|
+| Custom JSON schema (not `dumpdata`) | `dumpdata` includes internal IDs, ContentTypes, Users — all differ between environments |
+| Slug as the primary key | Slugs are stable and unique across databases |
+| Images/documents referenced by URL only | They live on disk, not in git |
+| Tech stack flattened to array of dicts | StreamField values are complex to serialize |
+
+**Usage:**
+
+    cd ~/Documents/alton-portfolio/backend
+    python manage.py dump_content
+
+**Output:**
+
+    Wrote home/fixtures/content.json (1 projects, 1 blogs, 1 lectures)
+
+**Sample JSON:**
+
+    {
+      "version": 1,
+      "projects": [
+        {
+          "slug": "education-kpi-dashboard",
+          "title": "Education KPI Dashboard",
+          "intro": "A real-time Streamlit dashboard...",
+          "category": "dashboard",
+          "featured": true,
+          "live_demo_url": "https://example.com/demo",
+          "github_url": "https://github.com/kessellyalton",
+          "tech_stack": [
+            { "name": "Python", "icon": "🐍" },
+            { "name": "Streamlit", "icon": "🎈" },
+            { "name": "Plotly", "icon": "📊" }
+          ]
+        }
+      ],
+      "blogs": [...],
+      "lectures": [...]
+    }
+
+The file is committed to the repo — so it ships to Render with every deploy.
+
+### Step 9.15 — Portable Content Import (`load_content`)
+
+**New file: `backend/home/management/commands/load_content.py`**
+
+Reads the JSON and **upserts** each page by slug:
+- If a page with that slug exists → update its fields
+- If not → create a new child page under HomePage
+
+**Usage:**
+
+    cd ~/Documents/alton-portfolio/backend
+    python manage.py load_content
+
+**Output:**
+
+    Loading fixture version 1 from home/fixtures/content.json
+    [rag-signal] Indexed project-4
+    [rag-signal] Indexed blog-5
+    [rag-signal] Indexed lecture-6
+    Created: {'projects': 0, 'blogs': 0, 'lectures': 0}
+    Updated: {'projects': 1, 'blogs': 1, 'lectures': 1}
+
+**Why signals fire during load:** `page.save_revision().publish()` triggers `page_published`, which our signals module catches. So imported content is **automatically indexed into Upstash Vector** — no second step.
+
+**Why idempotent:** Same slug always maps to the same page. Running `load_content` repeatedly is safe — it updates, never duplicates.
+
+### Step 9.16 — Emoji Icons in Tech Stack
+
+Extended the frontend project detail page to render emojis alongside tech names.
+
+**File: `app/projects/[slug]/page.tsx`**
+
+**Before:**
+
+    {project.tech_stack.map((tech) => (
+      <span
+        key={tech.id}
+        className="rounded-md border border-navy-700 bg-navy-800/60 px-3 py-1.5 text-sm font-medium text-ink-300"
+      >
+        {tech.value.name}
+      </span>
+    ))}
+
+**After:**
+
+    {project.tech_stack.map((tech) => (
+      <span
+        key={tech.id}
+        className="inline-flex items-center gap-1.5 rounded-md border border-navy-700 bg-navy-800/60 px-3 py-1.5 text-sm font-medium text-ink-300"
+      >
+        {tech.value.icon && (
+          <span aria-hidden="true">{tech.value.icon}</span>
+        )}
+        {tech.value.name}
+      </span>
+    ))}
+
+Two changes:
+1. **`inline-flex items-center gap-1.5`** — emoji and text align side by side
+2. **`{tech.value.icon && <span>}`** — emoji renders only if present
+
+Result: 🐍 Python &nbsp; 🎈 Streamlit &nbsp; 📊 Plotly
+
+---

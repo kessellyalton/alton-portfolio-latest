@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "projects": [
+    {
+      "slug": "education-kpi-dashboard",
+      "title": "Education KPI Dashboard",
+      "intro": "A real-time Streamlit dashboard tracking education KPIs across Liberia's 15 counties.",
+      "category": "dashboard",
+      "featured": true,
+      "live_demo_url": "https://example.com/demo",
+      "case_study_url": "",
+      "github_url": "https://github.com/kessellyalton",
+      "tech_stack": [
+        {
+          "name": "Python",
+          "icon": ""
+        },
+        {
+          "name": "Streamlit",
+          "icon": ""
+        },
+        {
+          "name": "Plotly",
+          "icon": ""
+        }
+      ]
+    }
+  ],
+  "blogs": [
+    {
+      "slug": "how-llms-can-transform-education-policy",
+      "title": "How LLMs Can Transform Education Policy",
+      "date": "2026-09-13",
+      "intro": "A look at how transformer models can help ministries design better education systems.",
+      "author": "Alton Kesselly",
+      "reading_time": 12,
+      "category": "AI & Education"
+    }
+  ],
+  "lectures": [
+    {
+      "slug": "introduction-to-transformers-llms",
+      "title": "Introduction to Transformers & LLMs",
+      "intro": "A beginner-friendly introduction to transformer models and large language models.",
+      "level": "beginner",
+      "duration": "4h 30m",
+      "lesson_count": 12,
+      "featured": false,
+      "video_url": "",
+      "syllabus_url": ""
+    }
+  ]
+}

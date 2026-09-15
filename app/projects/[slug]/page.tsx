@@ -152,8 +152,11 @@ export default async function ProjectDetailPage({ params }: Props) {
             {project.tech_stack.map((tech) => (
               <span
                 key={tech.id}
-                className="rounded-md border border-navy-700 bg-navy-800/60 px-3 py-1.5 text-sm font-medium text-ink-300"
+                className="inline-flex items-center gap-1.5 rounded-md border border-navy-700 bg-navy-800/60 px-3 py-1.5 text-sm font-medium text-ink-300"
               >
+                {tech.value.icon && (
+                  <span aria-hidden="true">{tech.value.icon}</span>
+                )}
                 {tech.value.name}
               </span>
             ))}
