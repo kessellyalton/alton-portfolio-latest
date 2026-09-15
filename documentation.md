@@ -1518,3 +1518,41 @@ Full URL: `http://127.0.0.1:8000/api/chat/context/`
 Both share the same Upstash backend. They're two interfaces to the same retrieval layer.
 
 ---
+### Step 9.3 — Testing the Context Endpoint
+
+**Success case:**
+
+    curl -s "http://127.0.0.1:8000/api/chat/context/?q=What+projects+has+Alton+published&k=3" | python3 -m json.tool
+
+**Response:**
+
+    {
+        "context": "Title: Introduction to Transformers & LLMs\nType: lecture\nURL: /lectures/introduction-to-transformers-llms\n\nTitle: Education KPI Dashboard\nType: project\nURL: /projects/education-kpi-dashboard\n\nTitle: How LLMs Can Transform Education Policy\nType: blog\nURL: /blog/how-llms-can-transform-education-policy",
+        "chunks": [
+            { "title": "Introduction to Transformers & LLMs", "type": "lecture", "url": "...", "score": 0.577 },
+            { "title": "Education KPI Dashboard", "type": "project", "url": "...", "score": 0.569 },
+            { "title": "How LLMs Can Transform Education Policy", "type": "blog", "url": "...", "score": 0.560 }
+        ]
+    }
+
+**Key observations:**
+
+- Upstash Vector is populated with all three content types (project, blog, lecture)
+- Semantic search works: the query about "projects" also surfaced the related lecture and blog
+- Scores range from 0.55 to 0.58 — typical for semantic similarity
+- The `context` string is formatted as markdown for direct injection into the LLM prompt
+
+**Error case (missing query):**
+
+    curl -s "http://127.0.0.1:8000/api/chat/context/" | python3 -m json.tool
+
+**Response:**
+
+    { "error": "q parameter is required" }
+
+**Server log confirms both:**
+
+    "GET /api/chat/context/?q=... HTTP/1.1" 200
+    "GET /api/chat/context/ HTTP/1.1" 400
+
+---
