@@ -2025,3 +2025,70 @@ Two changes:
 Result: 🐍 Python &nbsp; 🎈 Streamlit &nbsp; 📊 Plotly
 
 ---
+### Step 9.17 — Production Content Sync HTTP Endpoint
+
+**Problem:** Render free tier has no shell access. We can't SSH in to run `python manage.py load_content`.
+
+**Solution:** A token-protected HTTP endpoint that runs the command remotely.
+
+**New file: `backend/ai_chat/sync_views.py`**
+
+    @csrf_exempt
+    @require_POST
+    def sync_content(request):
+        # 1. Verify X-Sync-Token header matches SYNC_TOKEN env var
+        # 2. Run load_content via call_command, capturing stdout/stderr
+        # 3. Strip ANSI escape codes
+        # 4. Return { ok, stdout, stderr }
+
+**Route registered in `ai_chat/urls.py`:**
+
+    path("sync-content/", sync_views.sync_content, name="sync-content"),
+
+Full URL: `POST /api/sync-content/`
+
+**Authentication:**
+
+| Header | Must match |
+|---|---|
+| `X-Sync-Token` | `SYNC_TOKEN` env var |
+
+If `SYNC_TOKEN` is not set on the server → 500 error (fail loud).
+If token doesn't match → 401 Unauthorized.
+Both cases logged with `logger.warning`.
+
+**Why `/api/sync-content/` is not a security hole:**
+
+1. Requires secret token that's only known locally + on Render
+2. Only runs `load_content` — the command reads from a committed JSON file
+3. Cannot be used to inject arbitrary content or run arbitrary commands
+4. Every attempt (success or denial) is logged
+
+**Optional — disable after use:** Remove the route from `ai_chat/urls.py` after first sync if you never want it accessible again. But keeping it enabled lets you re-sync content from your laptop at any time.
+
+**Local test results:**
+
+    # Authorized
+    curl -s -X POST http://127.0.0.1:8000/api/sync-content/ \
+      -H "X-Sync-Token: $TOKEN"
+    {
+        "ok": true,
+        "stdout": "Loading fixture version 1 from home/fixtures/content.json\nCreated: {...}\nUpdated: {'projects': 1, 'blogs': 1, 'lectures': 1}\n",
+        "stderr": ""
+    }
+
+    # Wrong token
+    curl -s -X POST http://127.0.0.1:8000/api/sync-content/ \
+      -H "X-Sync-Token: wrong-token"
+    { "error": "Unauthorized" }
+
+    # No token
+    curl -s -X POST http://127.0.0.1:8000/api/sync-content/
+    { "error": "Unauthorized" }
+
+**ANSI escape codes:** The management command's `self.style.SUCCESS(...)` wraps output in color escape codes (e.g. `\x1b[32;1m`). These render as colors in a terminal but as garbage in JSON. Fixed with a module-level regex:
+
+    _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+    clean_stdout = _ANSI_RE.sub("", out.getvalue())
+
+---
