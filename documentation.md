@@ -1719,3 +1719,88 @@ The AI referenced a **specific project by exact URL** — proving semantic retri
 - ✅ Backend `ask_chat` (full RAG + LLM) retained for future Slack/WhatsApp integration
 
 ---
+### Step 9.7 — Production Deploy Fix (Missing Packages)
+
+**Symptom on production:** `https://alton-portfolio-api.onrender.com/api/chat/context/?q=test&k=1` returned **Internal Server Error**.
+
+**Root cause:** `upstash-vector` and `groq` were installed locally but **missing from `requirements.txt`**. Render's build only installs what's listed. When the endpoint tried `from upstash_vector import Index`, it threw `ImportError` → 500.
+
+**Fix — add packages to `requirements.txt`:**
+
+    # ─── RAG / AI ─────────────────────────────────
+    upstash-vector>=0.8,<1.0
+    groq>=1.0,<2.0
+
+**Version constraint note:** Initially we wrote `groq>=0.13,<1.0` but the locally-installed version was 1.7.0 — outside the range. Updated the constraint to `groq>=1.0,<2.0` so it matches what was tested locally.
+
+### Step 9.8 — Render Environment Variables (No Quotes!)
+
+**Symptom:** After adding the packages and redeploying, the endpoint still needed the RAG secrets.
+
+**Missing on Render:**
+- `GROQ_API_KEY`
+- `UPSTASH_VECTOR_REST_URL`
+- `UPSTASH_VECTOR_REST_TOKEN`
+
+**Critical gotcha — quotes:**
+
+In `.env.local`, values are often wrapped in quotes:
+
+    UPSTASH_VECTOR_REST_URL="https://alive-rhino-58300-us1-vector.upstash.io"
+
+`python-dotenv` **strips the quotes** when loading locally. But Render's UI treats the entire field **literally** — if you paste with quotes, the value becomes:
+
+    "https://alive-rhino-58300-us1-vector.upstash.io"
+
+…including the literal quote characters. When `upstash_vector.Index(url=...)` receives this, DNS resolution fails.
+
+**Rule:** When entering env vars in a hosting UI (Render, Vercel, Railway, GitHub Actions), **never wrap values in quotes**. Only files parsed by `dotenv` need/allow them.
+
+**Helper to copy clean values locally:**
+
+    grep "^GROQ_API_KEY=" .env.local | cut -d'=' -f2- | tr -d '"'
+
+Repeat for each var.
+
+### Step 9.9 — Verification (Both Environments)
+
+**Local test (localhost:3000 + 127.0.0.1:8000):**
+
+User asked: "What lectures does he offer?"
+
+AI response:
+
+> "Alton currently offers the lecture **Introduction to Transformers & LLMs**. You can see the details and access the material here: /lectures/introduction-to-transformers-llms."
+
+**Production test (alton-portfolio-latest.vercel.app + alton-portfolio-api.onrender.com):**
+
+User asked: "What projects has Alton published?"
+
+AI response:
+
+> "Alton's published project portfolio currently includes **Education KPI Dashboard** – an interactive analytics tool for tracking key education metrics (see /projects/education-kpi-dashboard). No additional projects are listed in the portfolio at this time. If you'd like more details or have a specific interest, feel free to reach out via the contact page."
+
+**Direct endpoint test (production):**
+
+    GET https://alton-portfolio-api.onrender.com/api/chat/context/?q=test&k=1
+
+    {
+      "context": "Title: Education KPI Dashboard\nType: project\nURL: /projects/education-kpi-dashboard",
+      "chunks": [
+        {
+          "title": "Education KPI Dashboard",
+          "type": "project",
+          "url": "/projects/education-kpi-dashboard",
+          "score": 0.58815104
+        }
+      ]
+    }
+
+**Both environments confirm:**
+- ✅ Django endpoint responds with valid JSON
+- ✅ Upstash Vector returns semantic chunks
+- ✅ Next.js injects chunks into the system prompt
+- ✅ Groq streams a response referencing exact content
+- ✅ Chat logged in Django admin
+
+---
