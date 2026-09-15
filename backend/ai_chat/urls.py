@@ -2,6 +2,12 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Chat RAG Query Endpoint (full pipeline: retrieval + LLM)
+    path("chat/", views.ask_chat, name="chat"),
+
+    # Chat context retrieval (retrieval only — for hybrid RAG streaming)
+    path("chat/context/", views.chat_context, name="chat-context"),
+
     # Called by the widget
     path("chat-log/", views.log_chat, name="chat-log"),
 

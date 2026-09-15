@@ -1371,3 +1371,150 @@ The deploy platforms pull from GitHub. Make sure everything is committed and pus
 cd ~/Documents/alton-portfolio
 git status
 git push
+
+## Phase 8 — Deployment
+
+### 🎉 LIVE IN PRODUCTION
+
+| Service | URL |
+|---|---|
+| Frontend | https://alton-portfolio-latest.vercel.app |
+| Backend API | https://alton-portfolio-api.onrender.com |
+| Database | Neon PostgreSQL (permanent free tier) |
+| AI Provider | Groq (free tier) |
+
+### Stack
+
+- **Frontend:** Vercel (Hobby tier, free)
+- **Backend:** Render (Free tier, spins down after 15 min inactivity)
+- **Database:** Neon (0.5 GB free, never expires)
+- **AI:** Groq (free tier, no credit card)
+
+### Production Environment Variables
+
+**Render (backend):**
+- `DJANGO_SECRET_KEY`, `DJANGO_DEBUG=False`, `DJANGO_SETTINGS_MODULE=backend.settings.production`
+- `DJANGO_ALLOWED_HOSTS=alton-portfolio-api.onrender.com,.onrender.com`
+- `DATABASE_URL` (from Neon)
+- `FRONTEND_URL=https://alton-portfolio-latest.vercel.app`
+- `CORS_ALLOWED_ORIGINS=https://alton-portfolio-latest.vercel.app`
+- `CSRF_TRUSTED_ORIGINS=https://alton-portfolio-latest.vercel.app`
+- `SECURE_SSL_REDIRECT=False`, `SESSION_COOKIE_SECURE=False`, `CSRF_COOKIE_SECURE=False`
+- `DJANGO_SUPERUSER_USERNAME/EMAIL/PASSWORD` (one-time bootstrap)
+
+**Vercel (frontend):**
+- `NEXT_PUBLIC_API_URL=https://alton-portfolio-api.onrender.com`
+- `NEXT_PUBLIC_SITE_URL=https://alton-portfolio-latest.vercel.app`
+- `GROQ_API_KEY`, `DASHBOARD_PASSWORD`, `DASHBOARD_TOKEN`
+- `NEXT_PUBLIC_INTRO_VIDEO_URL=https://www.youtube.com/embed/JeRcfKQTxRg`
+
+### The Big Debugging Journey: Vercel + `@/` Alias
+
+**Symptom:** Every deployment failed with `Module not found: Can't resolve '@/lib/api'`.
+
+**Root cause:** Vercel's monorepo support had subtle issues that made the `@` path alias unresolvable in production even though it worked locally.
+
+**Failed attempts:**
+1. Root Directory = `frontend` — Vercel ignored it
+2. `process.cwd()` webpack alias — pointed to repo root
+3. `__dirname` webpack alias — Vercel's `modifyConfig` overrode it
+4. Moved frontend to repo root — tsconfig paths still not honored
+5. Empty `next.config.ts` — same issue
+6. `@` alias via `__dirname` — Vercel's platform hook reset it
+
+**Final solution:** Move all frontend files to the repo root AND replace every `@/...` import with relative paths (`../lib/...`).
+
+**Critical discovery:** The root `.gitignore` had `lib/` in the Python section, which silently ignored the Next.js `lib/` folder. Vercel never received the files. Fixed by commenting out `lib/` and `lib64/`.
+
+**Lesson:** When using a `.gitignore` with broad patterns, always verify with:
+```bash
+git check-ignore -v path/to/important/file
+
+## Phase 9 — Hybrid RAG (Django Retrieval + Next.js Streaming)
+
+### Overview
+
+Upgraded the chatbot from context-stuffing to true semantic retrieval. The new architecture:
+
+- **Django** exposes a lightweight `/api/chat/context/` endpoint that queries Upstash Vector and returns the top-k relevant chunks. **No LLM call** — just retrieval.
+- **Next.js** fetches the context from Django, injects it into the system prompt, and streams the LLM response from Groq.
+- **Streaming is preserved** — user sees tokens as they arrive.
+- **Chat logging stays in Next.js** — the existing `onFinish` handler continues to record every conversation.
+
+### Why Hybrid (vs. Django-Only or Next.js-Only)
+
+| Approach | Retrieval | Streaming | Complexity |
+|---|---|---|---|
+| Next.js only (context stuffing) | Fetch all content | ✅ | Low |
+| Django only | Semantic (Upstash) | ❌ | Medium |
+| **Hybrid** ✅ | Semantic (Upstash) | ✅ | Medium |
+
+Chosen because it scales with content (only top-k chunks hit the LLM) while keeping the fast UX of streaming.
+
+### Architecture
+
+    Browser → Next.js /api/chat
+                │
+                ├─► GET http://127.0.0.1:8000/api/chat/context/?q=...
+                │    (returns top-k chunks from Upstash — fast, no LLM)
+                │
+                ├─► Stream from Groq with retrieved context injected
+                │
+                └─► Stream to browser + log chat on finish
+
+### Step 9.1 — Django Context Endpoint (`ai_chat/views.py`)
+
+Added `chat_context` view — a retrieval-only endpoint:
+
+    @require_GET
+    def chat_context(request):
+        """
+        GET /api/chat/context/?q=<query>&k=<count>
+        Returns { "context": "...", "chunks": [...] }
+        """
+        from upstash_vector import Index
+
+        query = (request.GET.get("q") or "").strip()
+        if not query:
+            return JsonResponse({"error": "q parameter is required"}, status=400)
+
+        top_k = min(int(request.GET.get("k", 3)), 10)
+
+        # Query Upstash Vector
+        index = Index(url=..., token=...)
+        results = index.query(data=query, top_k=top_k, include_metadata=True)
+
+        # Return context string + structured chunk list
+        return JsonResponse({"context": context_str, "chunks": chunks})
+
+**Key properties:**
+- Uses `@require_GET` — the frontend calls it with a query string
+- Does NOT call Groq — pure retrieval, ~300–500ms response
+- Graceful fallback: if Upstash isn't configured, returns empty context with a warning instead of erroring
+- Returns both a formatted `context` string (for the LLM prompt) and a structured `chunks` array (for future analytics)
+
+### Step 9.2 — Route Registration (`ai_chat/urls.py`)
+
+    path("chat/context/", views.chat_context, name="chat-context"),
+
+Full URL: `http://127.0.0.1:8000/api/chat/context/`
+
+### Django View Inventory (after Phase 9)
+
+| Function | Route | Purpose |
+|---|---|---|
+| `log_chat` | POST `/api/chat-log/` | Record a chat from the widget |
+| `list_chats` | GET `/api/chat-logs/` | Dashboard chat listing |
+| `chat_detail` | GET `/api/chat-logs/<id>/` | Single chat detail |
+| `toggle_flag` | POST `/api/chat-logs/<id>/flag/` | Flip flagged boolean |
+| `ask_chat` | POST `/api/chat/` | Full RAG pipeline (retrieval + LLM) — kept for direct API use and future Slack/WhatsApp integration |
+| **`chat_context`** | **GET `/api/chat/context/`** | **Retrieval only — for hybrid frontend** |
+
+### Why We Keep Both `ask_chat` and `chat_context`
+
+- **`ask_chat`** — useful for non-browser clients (a future Slack bot, WhatsApp integration, internal dashboards) where streaming doesn't matter.
+- **`chat_context`** — used by the Next.js widget to preserve streaming.
+
+Both share the same Upstash backend. They're two interfaces to the same retrieval layer.
+
+---
