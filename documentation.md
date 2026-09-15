@@ -2186,3 +2186,60 @@ python manage.py migrate
 
 # Idempotent production bootstrap (site host, seed, superuser)
 python manage.py bootstrap_production
+
+**Critical gotcha — quotes:**
+
+In `.env` files (both `backend/.env` and the root `.env.local`), values are
+often wrapped in quotes:
+
+    UPSTASH_VECTOR_REST_URL="https://alive-rhino-58300-us1-vector.upstash.io"
+
+`python-dotenv` **strips the quotes** when loading locally. But Render's UI
+treats the entire field **literally** — if you paste with quotes, the value
+becomes:
+
+    "https://alive-rhino-58300-us1-vector.upstash.io"
+
+…including the literal quote characters. When `upstash_vector.Index(url=...)`
+receives this, DNS resolution fails.
+
+**Rule:** When entering env vars in a hosting UI (Render, Vercel, Railway,
+GitHub Actions), **never wrap values in quotes**. Only files parsed by
+`dotenv` need/allow them.
+
+**Helper to copy clean values locally:**
+
+    grep "^GROQ_API_KEY=" .env.local | cut -d'=' -f2- | tr -d '"'
+
+Repeat for each var.
+
+#### Secret Inventory — where each variable lives
+
+| Variable | `backend/.env` | root `.env.local` | Render | Vercel | Read by |
+|---|---|---|---|---|---|
+| `DJANGO_SECRET_KEY` | ✅ | — | ✅ | — | Django |
+| `DJANGO_DEBUG` | ✅ | — | ✅ | — | Django |
+| `DJANGO_ALLOWED_HOSTS` | ✅ | — | ✅ | — | Django |
+| `DATABASE_URL` | — | — | ✅ | — | Django (prod only) |
+| `DB_*` | ✅ | — | — | — | Django (dev only) |
+| `GROQ_API_KEY` | ✅ | ✅ | ✅ | ✅ | Django **and** Next.js |
+| `UPSTASH_VECTOR_REST_URL` | ✅ | ✅ | ✅ | ✅ | Django |
+| `UPSTASH_VECTOR_REST_TOKEN` | ✅ | ✅ | ✅ | ✅ | Django |
+| `SYNC_TOKEN` | ✅ | ✅ | ✅ | ✅ | Django |
+| `NEXT_PUBLIC_API_URL` | — | ✅ | — | ✅ | Next.js (browser) |
+| `NEXT_PUBLIC_SITE_URL` | — | ✅ | — | ✅ | Next.js (browser) |
+| `NEXT_PUBLIC_INTRO_VIDEO_URL` | — | ✅ | — | ✅ | Next.js (browser) |
+| `DASHBOARD_PASSWORD` | — | ✅ | — | ✅ | Next.js (server) |
+| `DASHBOARD_TOKEN` | — | ✅ | — | ✅ | Next.js (server) |
+| `DJANGO_SUPERUSER_*` | — | — | ✅ | — | `bootstrap_production` (first deploy) |
+
+**Deliberate duplication:** `GROQ_API_KEY`, `UPSTASH_VECTOR_REST_*`, and
+`SYNC_TOKEN` are present in both `backend/.env` and the root `.env.local`.
+The frontend never reads the Upstash or sync vars — they're duplicated for
+dev convenience only, so a single file holds everything a developer needs
+to know about the project's secrets. Vercel's copies are inert.
+
+**Cost of this choice:** rotating `UPSTASH_VECTOR_REST_TOKEN` requires
+updating **three** locations (`backend/.env`, Render, Vercel). Forgetting
+one is silent. If that becomes annoying, remove the three vars from
+`.env.local` and from Vercel — nothing will break.
