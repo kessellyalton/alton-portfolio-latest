@@ -1,6 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { convertToModelMessages, streamText } from "ai";
-import { buildKnowledgeBase } from "../../../lib/knowledge-base";
+
+import { getRAGContext } from "../../../lib/api";
 
 export const maxDuration = 30;
 
@@ -37,7 +38,23 @@ Guidelines:
 - Keep replies under 4 sentences unless detail is needed.
 - Never invent credentials.
 - Encourage contact page when relevant.
-- When a "Portfolio Content" section appears below, use it to answer questions about Alton's SPECIFIC projects, blog posts, and lectures. Reference actual titles and details from that section. Never fabricate project names — if the section is empty for a category, say so honestly.`;
+- When a "RETRIEVED PORTFOLIO CONTEXT" section appears below, use it to answer questions about Alton's SPECIFIC projects, blog posts, and lectures. Reference actual titles and details from that section. Never fabricate project names — if the section is empty for a category, say so honestly.`;
+
+/**
+ * Extract plain text from a UI message object.
+ * Handles both the AI SDK v5+ `parts` array format and the older
+ * `content` string format.
+ */
+function getTextFromMessage(msg: any): string {
+  if (typeof msg?.content === "string") return msg.content;
+  if (Array.isArray(msg?.parts)) {
+    return msg.parts
+      .filter((p: any) => p?.type === "text")
+      .map((p: any) => p?.text ?? "")
+      .join("");
+  }
+  return "";
+}
 
 export async function POST(req: Request) {
   try {
@@ -67,20 +84,30 @@ export async function POST(req: Request) {
       );
     }
 
-    const modelMessages = await convertToModelMessages(messages);
-    console.log("[/api/chat] converted messages count:", modelMessages.length);
+    // ─── Extract the latest user message for RAG retrieval ─────
+    const lastUserMessage = [...messages]
+      .reverse()
+      .find((m: any) => m?.role === "user");
+    const userQuery = getTextFromMessage(lastUserMessage);
+    console.log("[/api/chat] user query:", userQuery.slice(0, 120));
 
-    // Fetch live portfolio content from Wagtail to give the AI full context.
-    // Cached for 5 minutes to avoid hitting the API on every message.
-    const knowledgeBase = await buildKnowledgeBase();
+    // ─── Retrieve top-3 semantically relevant chunks from Django ─
+    const ragContext = await getRAGContext(userQuery, 3);
     console.log(
-      "[/api/chat] knowledge base length:",
-      knowledgeBase.length,
+      "[/api/chat] RAG chunks retrieved:",
+      ragContext.chunks.length,
+      "context length:",
+      ragContext.context.length,
       "chars"
     );
-    const fullSystemPrompt = knowledgeBase
-      ? `${SYSTEM_PROMPT}\n\n---\n\n${knowledgeBase}`
+
+    // ─── Build the system prompt with retrieved context ────────
+    const fullSystemPrompt = ragContext.context
+      ? `${SYSTEM_PROMPT}\n\n---\n\nRETRIEVED PORTFOLIO CONTEXT:\n${ragContext.context}`
       : SYSTEM_PROMPT;
+
+    const modelMessages = await convertToModelMessages(messages);
+    console.log("[/api/chat] converted messages count:", modelMessages.length);
 
     const result = streamText({
       // Use .chat() to force the Chat Completions endpoint.

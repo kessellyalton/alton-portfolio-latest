@@ -1602,3 +1602,62 @@ Every backend call goes through this file. Adding `getRAGContext` here means:
 - Easy to test / mock in isolation
 
 ---
+
+### Step 9.5 — Next.js Chat Route Rewrite (Hybrid RAG Integration)
+
+**File:** `app/api/chat/route.ts`
+
+The route no longer uses context stuffing (`buildKnowledgeBase`). It now:
+
+1. Extracts the latest user message from the incoming `messages` array
+2. Calls `getRAGContext(userQuery, 3)` to retrieve top-3 semantically similar chunks
+3. Injects those chunks into the system prompt under a `RETRIEVED PORTFOLIO CONTEXT` header
+4. Streams the Groq response back to the browser as before
+
+**Key code changes:**
+
+| Before | After |
+|---|---|
+| `import { buildKnowledgeBase } from "../../../lib/knowledge-base"` | `import { getRAGContext } from "../../../lib/api"` |
+| `await buildKnowledgeBase()` | `await getRAGContext(userQuery, 3)` |
+| System prompt header: `"Portfolio Content"` | `"RETRIEVED PORTFOLIO CONTEXT"` |
+| Full KB injected into every prompt | Only top-3 chunks per query |
+
+**New helper — `getTextFromMessage`:**
+
+    function getTextFromMessage(msg: any): string {
+      if (typeof msg?.content === "string") return msg.content;
+      if (Array.isArray(msg?.parts)) {
+        return msg.parts
+          .filter((p: any) => p?.type === "text")
+          .map((p: any) => p?.text ?? "")
+          .join("");
+      }
+      return "";
+    }
+
+Handles both AI SDK v5+ `parts` format and legacy `content` string format.
+
+**Debug logs added:**
+
+    [/api/chat] user query: <first 120 chars>
+    [/api/chat] RAG chunks retrieved: <n> context length: <chars> chars
+
+These let us verify in the terminal that retrieval is happening.
+
+**Build verification:**
+
+    npm run build
+
+    ✓ Compiled successfully in 4.5s
+    ✓ Generating static pages (18/18)
+
+**Warning encountered (harmless):**
+
+    ⚠ Warning: Next.js ignored package-lock.json in /home/alton because it is
+      outside the current Git repository
+
+Fix: either delete the stray `/home/alton/package-lock.json`, or add
+`outputFileTracingRoot: __dirname` to `next.config.ts`. Not blocking.
+
+---
