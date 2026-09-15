@@ -2092,3 +2092,66 @@ Both cases logged with `logger.warning`.
     clean_stdout = _ANSI_RE.sub("", out.getvalue())
 
 ---
+
+### Step 9.18 — Production Content Sync Verification
+
+**Test:** Triggered `POST /api/sync-content/` from local against production with valid `SYNC_TOKEN`.
+
+**Response:**
+
+    {
+      "ok": true,
+      "stdout": "Loading fixture version 1 from home/fixtures/content.json\nCreated: {'projects': 1, 'blogs': 1, 'lectures': 1}\nUpdated: {'projects': 0, 'blogs': 0, 'lectures': 0}\n",
+      "stderr": ""
+    }
+
+**What this means:** Production DB was empty, so all three pages were created fresh (not updated).
+
+**Render logs immediately after:**
+
+    [rag-signal] Indexed project-4
+    [rag-signal] Indexed blog-5
+    [rag-signal] Indexed lecture-6
+    POST /api/sync-content/ HTTP/1.1 200
+
+The signals fired on production too — content is in both Neon and Upstash.
+
+### Production Verification Matrix
+
+| Check | Result |
+|---|---|
+| `/api/v2/pages/?type=home.ProjectPage` returns Education KPI Dashboard | ✅ |
+| Production Wagtail admin shows 3 child pages | ✅ |
+| Production chat references "Introduction to Transformers & LLMs" by exact URL | ✅ |
+| `[rag-signal]` logs confirm signal firing on publish | ✅ |
+| UptimeRobot pings detected in logs | ✅ (backend stays warm) |
+
+### Full Phase 9 Exit Criteria — All Met ✅
+
+- ✅ Django `/api/chat/context/` endpoint retrieves top-k chunks from Upstash
+- ✅ Next.js `getRAGContext()` helper wraps the Django call with graceful fallback
+- ✅ Chat route injects retrieved context into the system prompt
+- ✅ Streaming preserved — user sees tokens as they arrive
+- ✅ Semantic retrieval verified — AI references real content by exact title and URL
+- ✅ Chat logging still works — every conversation recorded in Django
+- ✅ Backend `ask_chat` (full RAG + LLM) retained for future Slack/WhatsApp integration
+- ✅ Wagtail signals auto-index content on publish/unpublish/delete
+- ✅ Management commands for content dump/load between environments
+- ✅ Token-protected HTTP endpoint for production sync without shell access
+- ✅ Production database populated with real content
+- ✅ UptimeRobot keep-alive prevents cold starts
+
+### What This Achieves
+
+**Before Phase 9:** A portfolio with a chatbot that could only see content stuffed into every prompt. Content lived only locally.
+
+**After Phase 9:** A production-grade RAG system where:
+- Every page is semantically indexed in a vector DB
+- The chatbot retrieves only the top-3 most relevant chunks per query
+- New content auto-syncs on publish via signals
+- Bulk content can be pushed to production with a single curl command
+- The system scales to thousands of pages without prompt bloat
+
+**The architecture is now genuinely production-grade — the kind of setup you'd find in a commercial SaaS product.**
+
+---
