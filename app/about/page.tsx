@@ -4,7 +4,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "About",
   description:
-    "Alton Kesselly — AI Researcher, Data Analyst, and Full-Stack Developer. Former Deputy Minister of Education in Liberia.",
+    "Alton Kesselly — AI Researcher, Data Scientist, and Full-Stack Developer. Former Deputy Minister of Education in Liberia.",
 };
 
 const EDUCATION = [
@@ -185,7 +185,7 @@ export default function AboutPage() {
         <h1 className="mb-6 text-4xl font-bold tracking-tight sm:text-5xl">
           Educator,{" "}
           <span className="bg-gradient-to-r from-gold-400 via-gold-300 to-electric-400 bg-clip-text text-transparent">
-            Data Analyst
+            Data Scientist
           </span>
           , and AI Researcher
         </h1>

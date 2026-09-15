@@ -8,7 +8,7 @@ import IntroVideoModal from "./intro-video-modal";
 
 const ROLES = [
   "AI Researcher",
-  "Data Analyst",
+  "Data Scientist",
   "Full-Stack Developer",
   "Educator & Policy Leader",
   "Machine Learning Engineer",
@@ -92,8 +92,10 @@ export default function HeroSection() {
             </div>
 
             <h1 className="text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
-              Hi, I&apos;m{" "}
-              <span className="bg-gradient-to-r from-gold-400 via-gold-300 to-electric-400 bg-clip-text text-transparent">
+              <span className="block text-3xl font-semibold tracking-normal text-ink-300 sm:text-4xl">
+                Hi, I&apos;m
+              </span>
+              <span className="mt-2 block bg-gradient-to-r from-gold-400 via-gold-300 to-electric-400 bg-clip-text text-transparent">
                 Alton Kesselly
               </span>
             </h1>

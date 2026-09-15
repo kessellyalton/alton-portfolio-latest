@@ -2155,3 +2155,34 @@ The signals fired on production too — content is in both Neon and Upstash.
 **The architecture is now genuinely production-grade — the kind of setup you'd find in a commercial SaaS product.**
 
 ---
+### Step 8.5 — Production Bootstrap (`build.sh` + `bootstrap_production`)
+
+**Problem:** Render's free tier has **no shell access**. You cannot SSH in to
+create a superuser, seed default content, or fix the Wagtail `Site` hostname.
+
+**Solution:** A single idempotent management command, invoked from Render's
+build step on every deploy.
+
+**Two files do the work:**
+
+1. **`backend/build.sh`** — Render's entry point
+2. **`backend/home/management/commands/bootstrap_production.py`** — the actual logic
+
+#### `backend/build.sh`
+
+```bash
+#!/usr/bin/env bash
+# Exit on error
+set -o errexit
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Collect static files
+python manage.py collectstatic --no-input
+
+# Run migrations
+python manage.py migrate
+
+# Idempotent production bootstrap (site host, seed, superuser)
+python manage.py bootstrap_production

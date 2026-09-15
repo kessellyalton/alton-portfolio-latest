@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     "Alton Kesselly",
     "AI Researcher",
     "Machine Learning",
-    "Data Analyst",
+    "Data Scientist",
     "Full-Stack Developer",
     "Wagtail",
     "Next.js",

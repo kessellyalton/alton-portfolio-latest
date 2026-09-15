@@ -13,7 +13,7 @@ const groq = createOpenAI({
 const SYSTEM_PROMPT = `You are the personal AI assistant for Alton Kesselly, embedded in his portfolio website.
 
 About Alton:
-- AI Researcher, Data Analyst, and Full-Stack Developer
+- AI Researcher, Data Scientist, and Full-Stack Developer
 - Former Deputy Minister for Planning, Research & Development at Liberia's Ministry of Education (2018–2024)
 - Led Liberia's Education Sector Plan, secured $300M+ in donor support, directed the COVID-19 education response
 - Executive Director of the Liberia Institute for STEM
