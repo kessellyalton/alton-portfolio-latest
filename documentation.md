@@ -1804,3 +1804,106 @@ AI response:
 - ✅ Chat logged in Django admin
 
 ---
+### Step 9.10 — Content-to-Vector Sync via Wagtail Signals
+
+**Problem:** The vector DB only updated when we ran `python manage.py index_knowledge` manually. Every new project, blog post, or lecture would be invisible to the RAG chatbot until we remembered to re-index.
+
+**Solution:** Wagtail signals that auto-index content on publish/unpublish/delete.
+
+**New file: `backend/home/signals.py`**
+
+Registers three receivers:
+
+| Signal | Handler | When it fires | What it does |
+|---|---|---|---|
+| `page_published` | `on_page_published` | Page is published in Wagtail admin | `index.upsert(...)` — adds/updates the vector |
+| `page_unpublished` | `on_page_unpublished` | Page is unpublished | `index.delete(...)` — removes the vector |
+| `post_delete` | `on_page_deleted` | Page is deleted | `index.delete(...)` — removes the vector |
+
+Only fires for `ProjectPage`, `BlogPage`, and `LecturePage` — other page types are ignored.
+
+**Deterministic vector IDs:**
+
+    project-{id}    e.g. "project-4"
+    blog-{id}       e.g. "blog-2"
+    lecture-{id}    e.g. "lecture-5"
+
+Same ID on re-publish → upsert replaces, no duplicates.
+
+**Non-blocking by design:** If Upstash env vars are missing or the API call fails, the signal logs a warning and returns — the Wagtail publish still succeeds. This means content editing is never blocked by RAG infrastructure issues.
+
+### Step 9.11 — Wiring the Signals Into Django
+
+Django doesn't auto-import `signals.py`. It must be imported in the app's `AppConfig.ready()` method.
+
+**File: `backend/home/apps.py`**
+
+    from django.apps import AppConfig
+
+
+    class HomeConfig(AppConfig):
+        default_auto_field = "django.db.models.BigAutoField"
+        name = "home"
+
+        def ready(self):
+            from home import signals  # noqa: F401
+
+**Why the import is inside `ready()`:** Django raises an `AppRegistryNotReady` error if you import models at the module level of `apps.py`. Putting the import inside `ready()` delays it until all apps are loaded.
+
+### Step 9.12 — Logging Configuration
+
+Django's default logging only shows `WARNING` and above. Our signal handlers use `logger.info()` — invisible by default.
+
+**File: `backend/backend/settings/base.py`** — added:
+
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "handlers": {
+            "console": {"class": "logging.StreamHandler"},
+        },
+        "loggers": {
+            "home.signals": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "ai_chat.views": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+        },
+    }
+
+**Key settings:**
+
+| Setting | Why |
+|---|---|
+| `disable_existing_loggers: False` | Keeps Django's own loggers working (HTTP requests, errors) |
+| `propagate: False` | Prevents duplicate lines by stopping propagation to root logger |
+
+### Step 9.13 — End-to-End Signal Test
+
+**Test:** Edited a Project page in Wagtail admin and clicked Publish.
+
+**Server log immediately after:**
+
+    [rag-signal] Indexed project-4
+
+**What this proves:**
+- ✅ Signal fired automatically on publish
+- ✅ Handler connected to Upstash successfully
+- ✅ Vector upserted with ID `project-4`
+- ✅ No manual command needed
+
+**Now the RAG pipeline is fully automated:**
+
+| Event | Response |
+|---|---|
+| Add a new project and publish | Signal → vector added within ~500ms |
+| Edit a project and re-publish | Signal → vector updated (upsert) |
+| Unpublish a project | Signal → vector removed |
+| Delete a project | Signal → vector removed |
+
+---
